@@ -305,12 +305,12 @@ const SECTIONS = [
         after(d) {
             const p = d.peak_period;
             if (!p) return;
+            // one y range for every chart (both peaks, both directions), so they compare at a glance
+            const all = p.directions.flatMap(dir => PEAKS.flatMap(([k]) => (dir[k] ?? [])
+                .flatMap(y => Object.values(y.box ?? {}).flatMap(v => [v[0], v[4]]))));
+            if (!all.length) return;
+            const [yMin, yMax] = niceRange(all);
             PEAKS.forEach(([k, label]) => {
-                const dirs = p.directions.filter(dir => dir[k]);
-                if (!dirs.length) return;
-                const all = dirs.flatMap(dir => dir[k].flatMap(y => Object.values(y.box ?? {}).flatMap(v => [v[0], v[4]])));
-                if (!all.length) return;
-                const [yMin, yMax] = niceRange(all);
                 p.directions.forEach((dir, n) => {
                     if (!dir[k]) return;
                     candleChart(`chart-peak-${k}-${n}`, {

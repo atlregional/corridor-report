@@ -8,7 +8,7 @@
     <link rel="icon" href="style/arc-favicon-master.webp">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
-    <link rel="stylesheet" href="dashboard/css/dashboard.css?v=20261028y">
+    <link rel="stylesheet" href="dashboard/css/dashboard.css?v=20261029b">
 </head>
 <body>
     <a class="skip-link" href="#main">Skip to main content</a>
@@ -86,6 +86,12 @@
         <p id="announcer" class="visually-hidden" role="status" aria-live="polite"></p>
     </main>
 
+    <!-- desktop only (see .back-to-top in dashboard.css); shown after scrolling down a screen -->
+    <button type="button" id="back-to-top" class="back-to-top" hidden>
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Back to top
+    </button>
+
     <footer class="site-footer">
         <p id="last-updated" hidden>Last updated <time></time> (data periods vary by source and are shown next to section titles where available).</p>
         <p>Data: RITIS, NIRA Dynamics, the Georgia Department of Transportation, and the Atlanta Regional Commission.</p>
@@ -95,8 +101,8 @@
     <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="dashboard/js/charts.js?v=20261028y"></script>
-    <script src="dashboard/js/sections.js?v=20261028y"></script>
-    <script src="dashboard/js/app.js?v=20261028y"></script>
+    <script src="dashboard/js/charts.js?v=20261029b"></script>
+    <script src="dashboard/js/sections.js?v=20261029b"></script>
+    <script src="dashboard/js/app.js?v=20261029b"></script>
 </body>
 </html>

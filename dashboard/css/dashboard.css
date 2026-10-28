@@ -323,6 +323,20 @@ details.definition p { margin: .25rem 0 .5rem; color: var(--ink-secondary); }
     display: inline-flex; align-items: center; gap: .5rem;
 }
 .button-primary::after { content: "↓"; font-size: 1.2em; line-height: 1; }
+
+/* back to top: desktop only (wide screen with a mouse or trackpad), never on tablets or phones */
+.back-to-top { display: none; }
+@media (min-width: 1200px) and (hover: hover) and (pointer: fine) {
+    .back-to-top:not([hidden]) {
+        display: inline-flex; align-items: center; gap: .4rem;
+        position: fixed; right: 1.5rem; bottom: 1.5rem; z-index: 1000;
+        font: inherit; font-weight: 600; color: #fff; background: var(--arc-blue);
+        border: 0; border-radius: 999px; padding: .6rem 1.1rem; min-height: 44px; cursor: pointer;
+        box-shadow: 0 3px 10px rgb(38 71 150 / .35);
+    }
+    .back-to-top:hover { background: var(--arc-blue-dark); }
+    .back-to-top:focus-visible { outline-offset: 3px; }
+}
 .button-primary:focus-visible { outline-offset: 3px; }
 
 /* road condition: each segment is a button that highlights its class on the map */

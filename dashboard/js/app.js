@@ -72,9 +72,23 @@ const App = {
         this.renderList();
         document.getElementById('view-report').addEventListener('click', () => this.viewReport());
         this.initOverviewMap();
+        this.initBackToTop();
 
         window.addEventListener('popstate', () => this.selectFromUrl(false));
         this.selectFromUrl(false);
+    },
+
+    /* back to top: shown after scrolling down a screen (CSS limits it to desktops); focus goes
+       to the top of the page so keyboard users continue from there */
+    initBackToTop() {
+        const button = document.getElementById('back-to-top');
+        const update = () => { button.hidden = window.scrollY < window.innerHeight; };
+        window.addEventListener('scroll', update, { passive: true });
+        update();
+        button.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: this.reducedMotion() ? 'auto' : 'smooth' });
+            document.getElementById('main').focus({ preventScroll: true });
+        });
     },
 
     /* ---------- list ---------- */
@@ -138,6 +152,10 @@ const App = {
 
         // slimmed lines from build_map_lines.py (simplified, rounded, name only)
         fetch(DATA + 'corridor_lines.geojson', NO_CACHE).then(r => r.json()).then(gj => {
+            // draw low priority first so higher-priority corridors sit on top where lines overlap
+            // (e.g. an interstate over its express lane corridor)
+            const rank = f => this.byName[f.properties.Corridor]?.rank ?? Infinity;
+            gj.features.sort((a, b) => rank(b) - rank(a));
             this.geojson = gj;
             // dark casing under each line so the lighter colors (amber, green) stand out on the basemap
             this.casingLayer = L.geoJSON(gj, {
@@ -152,6 +170,8 @@ const App = {
                     const c = this.byName[f.properties.Corridor];
                     layer.bindTooltip(`${esc(c.name)} (rank ${c.rank})`, { sticky: true });
                     layer.on('click', () => this.select(c.id));
+                    layer.on('mouseover', () => this.hoverCorridor(c.id));
+                    layer.on('mouseout', () => this.hoverCorridor(null));
                 },
             }).addTo(map);
             if (this._visible) this.styleOverview();   // a filter set before the lines loaded
@@ -184,14 +204,34 @@ const App = {
         const c = this.byName[f.properties.Corridor];
         const visible = this._visible ? this._visible.has(c.id) : true;
         const selected = c.id === this.selected;
-        return { color: selected ? SELECTED_COLOR : rankColor(c.rank), weight: selected ? 7 : 3, opacity: visible ? 1 : 0.12 };
+        const hovered = c.id === this._hovered && !selected;
+        return { color: selected ? SELECTED_COLOR : rankColor(c.rank), weight: selected ? 7 : hovered ? 6 : 3, opacity: visible ? 1 : 0.12 };
     },
 
     casingStyle(f) {
         const c = this.byName[f.properties.Corridor];
         const visible = this._visible ? this._visible.has(c.id) : true;
         const selected = c.id === this.selected;
+        const hovered = c.id === this._hovered && !selected;
+        // hovered: a white outline lifts the corridor off the lines around it
+        if (hovered && visible) return { color: '#ffffff', weight: 11, opacity: 1 };
         return { color: '#1f2328', weight: selected ? 13 : 5, opacity: visible ? (selected ? 0.9 : 0.6) : 0 };
+    },
+
+    /* hover highlight on the overview map: the whole corridor (every piece) thickens and comes to the front */
+    hoverCorridor(id) {
+        const before = this._hovered;
+        this._hovered = id;
+        const touched = l => [before, id].includes(this.byName[l.feature.properties.Corridor]?.id);
+        this.casingLayer?.eachLayer(l => { if (touched(l)) l.setStyle(this.casingStyle(l.feature)); });
+        this.overviewLayer?.eachLayer(l => { if (touched(l)) l.setStyle(this.overviewStyle(l.feature)); });
+        if (id == null) {
+            this.orderOverview();
+            return;
+        }
+        const mine = l => this.byName[l.feature.properties.Corridor]?.id === id;
+        this.casingLayer?.eachLayer(l => { if (mine(l)) l.bringToFront(); });
+        this.overviewLayer?.eachLayer(l => { if (mine(l)) l.bringToFront(); });
     },
 
     styleOverview() {
@@ -206,7 +246,16 @@ const App = {
             l.options.interactive = this._visible.has(id) || id === this.selected;
             if (!l.options.interactive) l.closeTooltip();
         });
-        this.overviewLayer?.eachLayer(l => { if (this.byName[l.feature.properties.Corridor]?.id === this.selected) l.bringToFront(); });
+        this.orderOverview();
+    },
+
+    /* drawing order: priority rank (1 on top), then the selected corridor above everything */
+    orderOverview() {
+        if (!this.overviewLayer) return;
+        const rank = l => this.byName[l.feature.properties.Corridor]?.rank ?? Infinity;
+        const byRank = this.overviewLayer.getLayers().sort((a, b) => rank(b) - rank(a));
+        byRank.forEach(l => l.bringToFront());
+        byRank.filter(l => this.byName[l.feature.properties.Corridor]?.id === this.selected).forEach(l => l.bringToFront());
     },
 
     corridorFeatures(name) {
