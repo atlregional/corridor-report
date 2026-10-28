@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Corridor Performance Dashboard | Atlanta Regional Commission</title>
+    <meta name="description" content="Travel time, congestion, reliability, road condition, and safety for 360 corridors in the Atlanta region.">
+    <link rel="icon" href="style/arc-favicon-master.webp">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+    <link rel="stylesheet" href="dashboard/css/dashboard.css?v=20261028y">
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+
+    <header class="site-header">
+        <a class="site-logo" href="https://atlantaregional.org/what-we-do/transportation-planning/" target="_blank" rel="noopener">
+            <img src="style/arc-favicon-master.webp" alt="Atlanta Regional Commission" width="48" height="48">
+            <span class="visually-hidden">(opens in a new tab)</span>
+        </a>
+        <div>
+            <p class="site-kicker">Atlanta Regional Commission</p>
+            <h1>Corridor Performance Dashboard</h1>
+        </div>
+    </header>
+
+    <main id="main" tabindex="-1">
+
+        <!-- Corridor picker -->
+        <section id="picker" aria-labelledby="picker-title">
+            <h2 id="picker-title">Choose a corridor</h2>
+
+            <div class="picker-layout">
+                <div class="picker-list">
+                    <form class="filters" aria-label="Filter corridors" onsubmit="return false">
+                        <div class="field">
+                            <label for="county-filter">County</label>
+                            <select id="county-filter"><option value="">All counties</option></select>
+                        </div>
+                        <div class="field">
+                            <label for="class-filter">Functional class</label>
+                            <select id="class-filter"><option value="">All classes</option></select>
+                        </div>
+                    </form>
+                    <p id="result-count" class="result-count" role="status" aria-live="polite"></p>
+
+                    <div class="table-scroll" tabindex="0" role="region" aria-labelledby="corridor-table-caption">
+                        <table class="corridor-table">
+                            <caption id="corridor-table-caption" class="visually-hidden">Corridors. Column headers are buttons that sort the table.</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col" aria-sort="none"><button type="button" data-sort="name">Corridor</button></th>
+                                    <th scope="col" aria-sort="none"><button type="button" data-sort="county">County</button></th>
+                                    <th scope="col" aria-sort="none"><button type="button" data-sort="f_class">Functional class</button></th>
+                                    <th scope="col" aria-sort="ascending"><button type="button" data-sort="rank">Priority rank</button></th>
+                                </tr>
+                            </thead>
+                            <tbody id="corridor-list"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="picker-map">
+                    <div id="overview-map" class="map" role="region" aria-label="Map of all corridors, colored by priority rank. Selecting a corridor on the map is the same as selecting it in the list."></div>
+                    <div id="map-legend" class="map-legend" aria-hidden="true"></div>
+                </div>
+            </div>
+
+            <p id="selection" class="selection" hidden>
+                <span>Selected: <strong id="selection-name"></strong></span>
+                <button type="button" class="button button-primary" id="view-report">View report</button>
+            </p>
+        </section>
+
+        <!-- Corridor report (filled in by js/app.js) -->
+        <section id="report" aria-labelledby="report-title" hidden>
+            <div class="report-header">
+                <p class="report-kicker">Corridor report</p>
+                <h2 id="report-title" tabindex="-1"></h2>
+                <p id="report-roads" class="report-roads" hidden></p>
+            </div>
+
+            <div id="report-body"></div>
+        </section>
+
+        <p id="announcer" class="visually-hidden" role="status" aria-live="polite"></p>
+    </main>
+
+    <footer class="site-footer">
+        <p id="last-updated" hidden>Last updated <time></time> (data periods vary by source and are shown next to section titles where available).</p>
+        <p>Data: RITIS, NIRA Dynamics, the Georgia Department of Transportation, and the Atlanta Regional Commission.</p>
+        <p>Questions or errors? Contact <a href="mailto:uhwang@atlantaregional.org">Uijeong "UJ" Hwang</a>.</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="dashboard/js/charts.js?v=20261028y"></script>
+    <script src="dashboard/js/sections.js?v=20261028y"></script>
+    <script src="dashboard/js/app.js?v=20261028y"></script>
+</body>
+</html>
