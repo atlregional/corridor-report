@@ -6,6 +6,13 @@ const DAY_NAMES = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thurs
 const WEEKDAYS = Object.keys(DAY_NAMES);
 const PEAKS = [['am', 'AM peak', '6–10 AM'], ['pm', 'PM peak', '3–7 PM']];
 
+// Keep full reporting dates beside section headings; use years elsewhere.
+function yearLabel(period) {
+    const text = String(period ?? '');
+    const years = text.match(/\b\d{4}\b/g);
+    return years ? [...new Set(years)].join('–') : text;
+}
+
 function span(periods) {
     if (!periods || !periods.length) return '';
     if (periods.length === 1) return periods[0];
@@ -27,12 +34,12 @@ function dataYears(d) {
     if (!d.data_status) return '';
     const year = App.region.reporting_year;
     const rows = Object.values(d.data_status).map(s => [s.title,
-        span(s.periods) || (s.status === 'unknown' ? 'Date unconfirmed' : 'Not available'),
+        span(s.periods.map(yearLabel)) || (s.status === 'unknown' ? 'Date unconfirmed' : 'Not available'),
         ({ current: `${year} data`, historical: 'Earlier data', unavailable: 'Not available', unknown: 'Date unconfirmed' })[s.status]
             + (s.note ? ` · ${s.note}` : '')]);
     return `<details class="card data-periods"><summary>Data years and availability</summary>
         <p>This is the ${year} reporting update. Each source has its own data period; the last updated date is the dashboard build date.</p>
-        ${tableHtml(`Data available for ${d.name}`, ['Section', 'Available period', 'Status'], rows)}</details>`;
+        ${tableHtml(`Data available for ${d.name}`, ['Section', 'Available years', 'Status'], rows)}</details>`;
 }
 
 /* answer is a paragraph of HTML, or a list of [term, explanation] pairs shown as bullets */
@@ -140,14 +147,16 @@ const SECTIONS = [
                 return card(this.id, this.title, dc.period,
                     `<p class="unavailable">Delay cost is not available for this corridor (RITIS has no traffic volume data for its segments).</p>`);
             }
-            const daily = dc.days && dc.vehicle_hours != null
-                ? ` (about ${fmt(dc.vehicle_hours / dc.days)} hours a day)` : '';
+            const dailyCost = dc.days > 0 ? dc.cost / dc.days : null;
+            const dailyHours = dc.days > 0 && dc.vehicle_hours != null ? dc.vehicle_hours / dc.days : null;
+            const dailyNote = dc.days > 0 ? `Based on ${fmt(dc.days)} calendar days` : '';
+            const totalNote = `Total for ${esc(dc.period)}`;
             return card(this.id, this.title, dc.period, `
-                <p class="summary">Congestion cost travelers on this corridor about <strong>$${fmt(dc.cost / 1e6, 1)} million</strong> in ${esc(dc.period)},
-                    from ${fmt(dc.vehicle_hours)} vehicle-hours of delay${daily}.</p>
                 <div class="stats">
-                    ${stat('Cost of delay', `$${fmt(dc.cost)}`)}
-                    ${stat('Vehicle-hours of delay', fmt(dc.vehicle_hours))}
+                    ${stat('Cost of delay', `$${fmt(dc.cost)}`, totalNote)}
+                    ${stat('Vehicle-hours of delay', fmt(dc.vehicle_hours), totalNote)}
+                    ${stat('Average daily cost of delay', dailyCost == null ? fmt(null) : `$${fmt(dailyCost)}`, dailyNote)}
+                    ${stat('Average daily vehicle-hours of delay', fmt(dailyHours, 1), dailyNote)}
                 </div>
                 ${definition('How is delay cost calculated?',
                     'Delay is the extra travel time compared with free-flow conditions, multiplied by traffic volume. It is valued at RITIS defaults for passenger vehicles (per person-hour × 1.7 people per vehicle) and commercial vehicles.')}`);
@@ -165,11 +174,11 @@ const SECTIONS = [
             return card(this.id, this.title, span(b.periods), `
                 <div class="stats">
                     <div class="stat stat-wide"><span class="stat-label">Key bottleneck location</span><span class="stat-value stat-text">${esc(b.location)}</span></div>
-                    ${stat(`Average daily duration, ${esc(b.periods[k])}`, esc((r.daily_duration[k] ?? '–').trim()), 'of congestion per day')}
-                    ${stat(`Average maximum queue, ${esc(b.periods[k])}`, `${fmt(r.max_length_mi[k], 2)} mi`)}
-                    ${stat(`Events and incidents, ${esc(b.periods[k])}`, fmt(r.events[k]))}
+                    ${stat(`Average daily duration, ${esc(yearLabel(b.periods[k]))}`, esc((r.daily_duration[k] ?? '–').trim()), 'of congestion per day')}
+                    ${stat(`Average maximum queue, ${esc(yearLabel(b.periods[k]))}`, `${fmt(r.max_length_mi[k], 2)} mi`)}
+                    ${stat(`Events and incidents, ${esc(yearLabel(b.periods[k]))}`, fmt(r.events[k]))}
                 </div>
-                ${dataTableDetails(`Key bottleneck measures by year at ${b.location}`, ['Measure', ...b.periods], [
+                ${dataTableDetails(`Key bottleneck measures by year at ${b.location}`, ['Measure', ...b.periods.map(yearLabel)], [
                     ['Events and incidents', ...r.events.map(v => fmt(v))],
                     ['Average maximum queue length (miles)', ...r.max_length_mi.map(v => fmt(v, 2))],
                     ['Average daily duration of congestion', ...r.daily_duration.map(v => (v ?? '–').trim())],
@@ -199,16 +208,16 @@ const SECTIONS = [
                 if (last && last.p25 != null) notes.push({ dir: dir.name, label, spread: last.p75 - last.p25, last });
             }));
             const widest = notes.sort((a, b) => b.spread - a.spread)[0];
-            const lastPeriod = rel.periods[rel.periods.length - 1];
+            const lastPeriod = yearLabel(rel.periods[rel.periods.length - 1]);
             const summary = widest ? `<p class="summary">The least predictable peak in ${esc(lastPeriod)} is <strong>${esc(widest.dir)}, ${esc(widest.label)}</strong>:
                 at its slowest 15 minutes (${esc(widest.last.time)}), speeds on a typical weekday range from ${fmt(widest.last.p25)} to ${fmt(widest.last.p75)} mph.
                 Longer bars mean less predictable trips.</p>` : '';
             return card(this.id, this.title, span(rel.periods), `
                 ${summary}
-                ${legendHtml(rel.periods, SERIES_COLORS, 'rel')}
+                ${legendHtml(rel.periods.map(yearLabel), SERIES_COLORS, 'rel')}
                 ${chartCanvas('chart-reliability', `Range chart of typical weekday speeds (25th to 75th percentile) at the slowest 15 minutes of each peak, by direction and year. ${widest ? `Widest range: ${widest.dir}, ${widest.label}.` : ''} Values are in the data table below.`,
                     { height: 70 + cats * rel.periods.length * 20 })}
-                ${dataTableDetails('Typical speed range (25th–75th percentile) at the slowest 15 minutes of each peak, weekdays', ['Direction and peak', ...rel.periods], rows)}
+                ${dataTableDetails('Typical speed range (25th–75th percentile) at the slowest 15 minutes of each peak, weekdays', ['Direction and peak', ...rel.periods.map(yearLabel)], rows)}
                 ${definition('How to read this', 'For each peak, we find the 15-minute interval with the lowest average speed. Each bar spans the speeds of a typical weekday at that time (the middle half of all days, 25th to 75th percentile). A longer bar means travel times are less predictable.')}`);
         },
         after(d) {
@@ -224,10 +233,10 @@ const SECTIONS = [
             const [min, max] = niceRange(all, 0.1);
             rangeChart('chart-reliability', {
                 labels, min, max, xTitle: 'Speed (mph)', group: 'rel',
-                series: rel.periods.map((p, k) => ({ label: p, data: cells.map(c => c[k] && c[k].p25 != null ? [c[k].p25, c[k].p75] : null) })),
+                series: rel.periods.map((p, k) => ({ label: yearLabel(p), data: cells.map(c => c[k] && c[k].p25 != null ? [c[k].p25, c[k].p75] : null) })),
                 tip: (k, i) => {
                     const v = cells[i][k];
-                    return v && v.p25 != null ? `${rel.periods[k]}: ${fmt(v.p25)}–${fmt(v.p75)} mph at ${v.time} (average ${fmt(v.mean)} mph)` : `${rel.periods[k]}: no data`;
+                    return v && v.p25 != null ? `${yearLabel(rel.periods[k])}: ${fmt(v.p25)}–${fmt(v.p75)} mph at ${v.time} (average ${fmt(v.mean)} mph)` : `${yearLabel(rel.periods[k])}: no data`;
                 },
             });
         },
@@ -239,7 +248,7 @@ const SECTIONS = [
         render(d) {
             const t = d.time_of_day;
             if (!t) return null;
-            const first = t.periods[0], last = t.periods[t.periods.length - 1];
+            const last = yearLabel(t.periods[t.periods.length - 1]);
             const tiles = [];
             t.directions.forEach(dir => {
                 const s0 = dir.series[0], s1 = dir.series[dir.series.length - 1];
@@ -250,18 +259,18 @@ const SECTIONS = [
             });
             const rows = [];
             t.directions.forEach(dir => dir.series.forEach(s => rows.push([
-                `${dir.name}, ${s.period}`, fmt(s.free_flow, 1),
+                `${dir.name}, ${yearLabel(s.period)}`, fmt(s.free_flow, 1),
                 s.am ? `${fmt(s.am.minutes, 1)} (${s.am.time})` : '–',
                 s.pm ? `${fmt(s.pm.minutes, 1)} (${s.pm.time})` : '–'])));
             const panels = t.directions.map((dir, n) => `<div>
                 <p class="chart-title">${esc(dir.name)}</p>
-                ${chartCanvas(`chart-tod-${n}`, `Line chart of average weekday travel time by time of day, ${dir.name}, one line per year (${t.periods.join(', ')}). Key values are in the tiles above and the data table below.`)}
+                ${chartCanvas(`chart-tod-${n}`, `Line chart of average weekday travel time by time of day, ${dir.name}, one line per year (${t.periods.map(yearLabel).join(', ')}). Key values are in the tiles above and the data table below.`)}
             </div>`).join('');
             return card(this.id, this.title, span(t.periods), `
                 <h4>Slowest peak-hour travel time, ${esc(last)} weekdays</h4>
                 <div class="stats">${tiles.join('')}</div>
                 <h4>Average weekday travel time through the corridor</h4>
-                ${legendHtml(t.periods, SERIES_COLORS, 'tod')}
+                ${legendHtml(t.periods.map(yearLabel), SERIES_COLORS, 'tod')}
                 <div class="grid-2">${panels}</div>
                 <p class="period-note">The shaded band shows the typical range (25th–75th percentile) for ${esc(last)}. Hover or tap a chart to read the values at any time of day.</p>
                 ${dataTableDetails('Travel time in minutes: fastest time of day and slowest peak-hour travel time', ['Direction and year', 'Fastest (min)', 'AM peak, slowest (min)', 'PM peak, slowest (min)'], rows)}`);
@@ -276,7 +285,7 @@ const SECTIONS = [
                 lineChart(`chart-tod-${n}`, {
                     labels: dir.series[lastIdx].times,
                     series: dir.series.map((s, k) => ({
-                        label: s.period, data: s.mean,
+                        label: yearLabel(s.period), data: s.mean,
                         band: k === lastIdx && s.p25 ? [s.p25, s.p75] : null,
                         color: SERIES_COLORS[t.periods.indexOf(s.period) % SERIES_COLORS.length],
                     })),
@@ -295,7 +304,7 @@ const SECTIONS = [
             const rows = [];
             p.directions.forEach(dir => {
                 PEAKS.filter(([k]) => dir[k]).forEach(([k, label]) => {
-                    dir[k].forEach(y => rows.push([`${dir.name}, ${label}, ${y.period}`, ...WEEKDAYS.map(x => fmt(y.days[x], 1))]));
+                    dir[k].forEach(y => rows.push([`${dir.name}, ${label}, ${yearLabel(y.period)}`, ...WEEKDAYS.map(x => fmt(y.days[x], 1))]));
                 });
             });
             const blocks = PEAKS.filter(([k]) => p.directions.some(dir => dir[k])).map(([k, label, hours]) => `
@@ -307,7 +316,7 @@ const SECTIONS = [
             // key: the box, the two whisker ends (5th and 95th percentile), the average dot
             const key = (body, w = 14) => `<svg width="${w}" height="20" viewBox="0 0 ${w} 20" aria-hidden="true">${body}</svg>`;
             return card(this.id, this.title, span(p.periods), `
-                ${legendHtml(p.periods, SERIES_COLORS, 'peak')}
+                ${legendHtml(p.periods.map(yearLabel), SERIES_COLORS, 'peak')}
                 <p class="candle-key" aria-hidden="true">
                     ${key('<rect x="2" y="3" width="10" height="14" rx="2" fill="#767b85"/>')} typical days (25th–75th percentile)
                     ${key('<line x1="7" x2="7" y1="2" y2="18" stroke="#767b85" stroke-width="1.5" stroke-dasharray="2 2"/><line x1="2" x2="12" y1="2" y2="2" stroke="#1f2328" stroke-width="2.5"/><line x1="2" x2="12" y1="18" y2="18" stroke="#1f2328" stroke-width="2.5"/>')} best and worst days (5th and 95th percentile)
@@ -328,7 +337,7 @@ const SECTIONS = [
                     if (!dir[k]) return;
                     candleChart(`chart-peak-${k}-${n}`, {
                         categories: WEEKDAYS, categoryNames: DAY_NAMES, yMin, yMax, yTitle: 'Minutes', group: 'peak',
-                        series: dir[k].map(y => ({ label: `${y.period} ${label}`, values: y.box ?? {} })),
+                        series: dir[k].map(y => ({ label: `${yearLabel(y.period)} ${label}`, values: y.box ?? {} })),
                     });
                 });
             });
@@ -358,18 +367,18 @@ const SECTIONS = [
             const lastIdx = c.periods.length - 1;
             const top = [...c.rows].sort((a, b) => (b.values[lastIdx] ?? 0) - (a.values[lastIdx] ?? 0)).slice(0, 2);
             return card(this.id, this.title, span(c.periods), `
-                <p class="summary">In ${esc(c.periods[lastIdx])}, the largest contributors to delay were <strong>${esc(top[0].category.toLowerCase())}</strong> (${fmt(top[0].values[lastIdx], 1)}%) and <strong>${esc(top[1].category.toLowerCase())}</strong> (${fmt(top[1].values[lastIdx], 1)}%).</p>
-                ${legendHtml(c.periods, SERIES_COLORS, 'causes')}
+                <p class="summary">In ${esc(yearLabel(c.periods[lastIdx]))}, the largest contributors to delay were <strong>${esc(top[0].category.toLowerCase())}</strong> (${fmt(top[0].values[lastIdx], 1)}%) and <strong>${esc(top[1].category.toLowerCase())}</strong> (${fmt(top[1].values[lastIdx], 1)}%).</p>
+                ${legendHtml(c.periods.map(yearLabel), SERIES_COLORS, 'causes')}
                 ${chartCanvas('chart-causes', `Bar chart of the share of delay by cause and year for ${d.name}. Values are in the data table below.`)}
                 <p class="period-note">Shares can add to more than 100% because delay can have overlapping causes.</p>
-                ${dataTableDetails('Share of delay by cause (%)', ['Cause', ...c.periods], c.rows.map(r => [r.category, ...r.values.map(v => fmt(v, 1))]))}`);
+                ${dataTableDetails('Share of delay by cause (%)', ['Cause', ...c.periods.map(yearLabel)], c.rows.map(r => [r.category, ...r.values.map(v => fmt(v, 1))]))}`);
         },
         after(d) {
             const c = d.causes;
             if (!c) return;
             barChart('chart-causes', {
                 labels: c.rows.map(r => r.category),
-                series: c.periods.map((p, k) => ({ label: p, data: c.rows.map(r => r.values[k]) })),
+                series: c.periods.map((p, k) => ({ label: yearLabel(p), data: c.rows.map(r => r.values[k]) })),
                 yTitle: 'Share of delay (%)', valueSuffix: '%', group: 'causes',
             });
         },
@@ -446,7 +455,7 @@ const SECTIONS = [
             // average day of each period, in tons (CO2), kg or g; periods are labeled by year
             const day = (t, v, scale = 1) => t.days ? v * scale / t.days : null;
             const KG = 907.18474, G = 907184.74;
-            const year = p => p.slice(-4);
+            const year = yearLabel;
             const cmp = this.comparison(e);
             const density = e.per_mile_day
                 ? stat('CO₂ per corridor mile', `${fmt(e.per_mile_day.co2, 1)} t`,
@@ -474,11 +483,11 @@ const SECTIONS = [
                 ${dataTableDetails('Emissions on an average day, by year', ['Year', 'Vehicle-miles', 'CO₂ (t)', 'NOx (kg)', 'PM2.5 (g)', 'CO (kg)', 'VOC (kg)', 'HC (kg)'],
                     e.totals.map(t => [year(t.period), fmt(day(t, t.vmt)), fmt(day(t, t.co2), 1), fmt(day(t, t.nox, KG)), fmt(day(t, t.pm25, G)),
                         fmt(day(t, t.co, KG)), fmt(day(t, t.voc, KG)), fmt(day(t, t.hc, KG))]), 'Show all pollutants by year')}
-                <details><summary>Show emissions by vehicle engine type</summary>${tableHtml(`Share by engine type (from vehicle registrations), ${last.period} (%)`,
+                <details><summary>Show emissions by vehicle engine type</summary>${tableHtml(`Share by engine type (from vehicle registrations), ${year(last.period)} (%)`,
                     ['Engine type', 'Vehicle-miles', 'CO₂', 'NOx', 'PM2.5'],
                     e.by_engine.map(x => [x.engine, fmt(x.vmt_share, 1), fmt(x.co2_share, 1), fmt(x.nox_share, 1), fmt(x.pm25_share, 1)]))}</details>
                 ${definition('Where do these numbers come from?',
-                    `Estimates from the RITIS Energy Use and Emissions model (University of Maryland CATT Lab), which is based on EPA’s MOVES3. It combines probe vehicle speeds, traffic volumes, and vehicle registrations for every day of the week. These are tailpipe emissions generated on the corridor, not measurements of the air people breathe. Because emissions are estimated per vehicle-mile, they rise and fall mainly with traffic volume. Values are for an average day, averaged over the months covered each year (${esc(span(e.periods))}). To compare corridors of different lengths, CO₂ is also shown per mile of corridor, both directions combined.`)}`);
+                    `Estimates from the RITIS Energy Use and Emissions model (University of Maryland CATT Lab), which is based on EPA’s MOVES3. It combines probe vehicle speeds, traffic volumes, and vehicle registrations for every day of the week. These are tailpipe emissions generated on the corridor, not measurements of the air people breathe. Because emissions are estimated per vehicle-mile, they rise and fall mainly with traffic volume. Values are for an average day within each year's reporting period. To compare corridors of different lengths, CO₂ is also shown per mile of corridor, both directions combined.`)}`);
         },
         // all-corridor spread, when it covers the same period as this corridor's newest data
         comparison(e) {
