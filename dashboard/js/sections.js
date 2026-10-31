@@ -23,6 +23,18 @@ function card(id, title, periods, body) {
         <h3 id="h-${id}">${esc(title)} ${note}</h3>${body}</section>`;
 }
 
+function dataYears(d) {
+    if (!d.data_status) return '';
+    const year = App.region.reporting_year;
+    const rows = Object.values(d.data_status).map(s => [s.title,
+        span(s.periods) || (s.status === 'unknown' ? 'Date unconfirmed' : 'Not available'),
+        ({ current: `${year} data`, historical: 'Earlier data', unavailable: 'Not available', unknown: 'Date unconfirmed' })[s.status]
+            + (s.note ? ` · ${s.note}` : '')]);
+    return `<details class="card data-periods"><summary>Data years and availability</summary>
+        <p>This is the ${year} reporting update. Each source has its own data period; the last updated date is the dashboard build date.</p>
+        ${tableHtml(`Data available for ${d.name}`, ['Section', 'Available period', 'Status'], rows)}</details>`;
+}
+
 /* answer is a paragraph of HTML, or a list of [term, explanation] pairs shown as bullets */
 function definition(question, answer) {
     const body = Array.isArray(answer)
@@ -128,10 +140,11 @@ const SECTIONS = [
                 return card(this.id, this.title, dc.period,
                     `<p class="unavailable">Delay cost is not available for this corridor (RITIS has no traffic volume data for its segments).</p>`);
             }
-            const perDay = dc.vehicle_hours / 365;
+            const daily = dc.days && dc.vehicle_hours != null
+                ? ` (about ${fmt(dc.vehicle_hours / dc.days)} hours a day)` : '';
             return card(this.id, this.title, dc.period, `
                 <p class="summary">Congestion cost travelers on this corridor about <strong>$${fmt(dc.cost / 1e6, 1)} million</strong> in ${esc(dc.period)},
-                    from ${fmt(dc.vehicle_hours)} vehicle-hours of delay (about ${fmt(perDay)} hours a day).</p>
+                    from ${fmt(dc.vehicle_hours)} vehicle-hours of delay${daily}.</p>
                 <div class="stats">
                     ${stat('Cost of delay', `$${fmt(dc.cost)}`)}
                     ${stat('Vehicle-hours of delay', fmt(dc.vehicle_hours))}
@@ -331,7 +344,7 @@ const SECTIONS = [
                     `Heat map of the travel time index along ${d.name} by time of day, one panel per direction and year. Green means near free-flow; yellow to red means slower; purple means more than 2.5 times the free-flow travel time.`,
                     'Each panel runs along the corridor (vertical) and through the day (horizontal). Colors show the travel time index: 1.0 is free flow; 2.0 means trips take twice as long. For numbers by time of day, see the travel time section above.')}</div>`
                 : `<p class="unavailable">A congestion scan is not available for this corridor.</p>`;
-            return card(this.id, this.title, d.time_of_day ? span(d.time_of_day.periods) : null, body +
+            return card(this.id, this.title, span(d.congestion_scan?.periods), body +
                 definition('What is the travel time index?', 'Travel time index = travel time in traffic ÷ travel time at free-flow speed. A value of 1.3 means a trip takes 30% longer than it would with no congestion.'));
         },
     },
@@ -380,6 +393,7 @@ const SECTIONS = [
                     <span class="visually-hidden">(${range} inches per mile). Highlight on the map.</span>
                 </button>`).join('');
             return card(this.id, this.title, r.period, `
+                ${r.snapshot ? `<p class="period-note">Snapshot: ${esc(new Date(`${r.snapshot}T00:00`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }))}.</p>` : ''}
                 <p class="summary">Average roughness is <strong>${fmt(r.iri_mean)} inches per mile</strong>
                     (<span class="badge ${r.class}">${esc(r.class_label)}</span>). Of the ${fmt(total, 1)} miles measured (both directions combined),
                     ${fmt(pct('good'))}% are in good condition, ${fmt(pct('fair'))}% fair, and ${fmt(pct('poor'))}% poor.</p>

@@ -50,6 +50,12 @@ const App = {
         this.region = region;
         corridors.forEach(c => { this.byName[c.name] = c; });
 
+        if (region.reporting_year) {
+            const label = document.getElementById('reporting-update');
+            label.textContent = `${region.reporting_year} reporting update · Data periods are shown in each corridor report`;
+            label.hidden = false;
+        }
+
         // footer date comes from the last build_data.py run
         const updated = document.getElementById('last-updated');
         if (region.updated) {
@@ -409,7 +415,7 @@ const App = {
         roads.hidden = !d.roads;
 
         const rendered = SECTIONS.map(s => ({ s, html: s.render(d) })).filter(x => x.html);
-        document.getElementById('report-body').innerHTML = rendered.map(x => x.html).join('');
+        document.getElementById('report-body').innerHTML = dataYears(d) + rendered.map(x => x.html).join('');
         rendered.forEach(x => x.s.after?.(d));
     },
 };

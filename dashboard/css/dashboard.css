@@ -72,6 +72,7 @@ a:hover { text-decoration-thickness: 2px; }
 }
 .site-header h1 { margin: 0; font-size: clamp(1.4rem, 3.5vw, 2.2rem); line-height: 1.2; }
 .site-kicker { margin: 0; font-size: .9rem; opacity: .95; }
+.site-update { margin: .35rem 0 0; font-size: .85rem; }
 .site-logo { flex: none; display: block; border-radius: 6px; }
 .site-logo img { display: block; width: 48px; height: 48px; }
 .site-logo:focus-visible { outline-color: #fff; }
@@ -207,6 +208,8 @@ input[type="search"], select {
 .card { scroll-margin-top: 1rem; }
 .card > h3 { display: flex; align-items: baseline; flex-wrap: wrap; gap: .25rem .75rem; }
 .period-note { font-size: .9rem; font-weight: 400; color: var(--ink-secondary); }
+.data-periods > summary { font-weight: 600; }
+.data-periods .data-table th, .data-periods .data-table td { white-space: normal; }
 
 .grid-2 { display: grid; gap: 1.25rem; grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 900px) { .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
