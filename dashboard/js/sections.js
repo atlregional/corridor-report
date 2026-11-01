@@ -6,7 +6,7 @@ const DAY_NAMES = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thurs
 const WEEKDAYS = Object.keys(DAY_NAMES);
 const PEAKS = [['am', 'AM peak', '6–10 AM'], ['pm', 'PM peak', '3–7 PM']];
 
-// Keep full reporting dates beside section headings; use years elsewhere.
+// Full reporting dates appear only in the two delay-total tiles; use years elsewhere.
 function yearLabel(period) {
     const text = String(period ?? '');
     const years = text.match(/\b\d{4}\b/g);
@@ -25,21 +25,10 @@ function span(periods) {
 }
 
 function card(id, title, periods, body) {
-    const note = periods ? `<span class="period-note">${esc(periods)}</span>` : '';
+    const headingPeriod = String(periods ?? '').replace(/^Jan(?:uary)?\s+0?1\s*[–-]\s*Oct(?:ober)?\s+26,\s*/, '');
+    const note = headingPeriod ? `<span class="period-note">${esc(headingPeriod)}</span>` : '';
     return `<section class="card" id="sec-${id}" aria-labelledby="h-${id}">
         <h3 id="h-${id}">${esc(title)} ${note}</h3>${body}</section>`;
-}
-
-function dataYears(d) {
-    if (!d.data_status) return '';
-    const year = App.region.reporting_year;
-    const rows = Object.values(d.data_status).map(s => [s.title,
-        span(s.periods.map(yearLabel)) || (s.status === 'unknown' ? 'Date unconfirmed' : 'Not available'),
-        ({ current: `${year} data`, historical: 'Earlier data', unavailable: 'Not available', unknown: 'Date unconfirmed' })[s.status]
-            + (s.note ? ` · ${s.note}` : '')]);
-    return `<details class="card data-periods"><summary>Data years and availability</summary>
-        <p>This is the ${year} reporting update. Each source has its own data period; the last updated date is the dashboard build date.</p>
-        ${tableHtml(`Data available for ${d.name}`, ['Section', 'Available years', 'Status'], rows)}</details>`;
 }
 
 /* answer is a paragraph of HTML, or a list of [term, explanation] pairs shown as bullets */
