@@ -116,7 +116,7 @@ const Tooltip = {
 };
 document.addEventListener('keydown', e => { if (e.key === 'Escape') Tooltip.hide(); });
 document.addEventListener('pointerdown', e => {
-    if (e.pointerType === 'touch' && !e.target.closest('.svg-chart, .condition-bar, .scan-chart')) Tooltip.hide();
+    if (e.pointerType === 'touch' && !e.target.closest('.svg-chart, .condition-bar, .scan-chart, .label-tips')) Tooltip.hide();
 });
 
 /* show a tooltip for elements matching selector inside container; html(el) builds the content */
@@ -353,6 +353,24 @@ function rangeChart(id, { labels, titles = null, series, xTitle, min, max, tip, 
         },
     });
     if (group) onLegend(group, chartLegendHandler(chart));
+    // full name when the pointer is on a (shortened) category label left of the bars
+    if (titles) {
+        const onLabel = e => {
+            const y = chart.scales.y, r = canvas.getBoundingClientRect();
+            const px = e.clientX - r.left, py = e.clientY - r.top;
+            if (px > y.right || py < y.top || py > y.bottom) return null;
+            const i = Math.round(y.getValueForPixel(py));
+            return i >= 0 && i < titles.length ? i : null;
+        };
+        const show = e => {
+            const i = onLabel(e);
+            i == null ? Tooltip.hide() : Tooltip.show(`<strong>${esc(titles[i])}</strong>`, e.clientX, e.clientY);
+        };
+        canvas.parentElement.classList.add('label-tips');   // so a tap here doesn't close the tooltip it opens
+        canvas.addEventListener('pointermove', show);
+        canvas.addEventListener('pointerdown', show);
+        canvas.addEventListener('pointerleave', e => { if (e.pointerType !== 'touch') Tooltip.hide(); });
+    }
 }
 
 /* ---------- SVG charts ---------- */

@@ -210,7 +210,7 @@ const SECTIONS = [
             }));
             const widest = notes.sort((a, b) => b.spread - a.spread)[0];
             const lastPeriod = yearLabel(rel.periods[rel.periods.length - 1]);
-            const summary = widest ? `<p class="summary">The least predictable peak in ${esc(lastPeriod)} is <strong>${esc(widest.dir)}, ${esc(widest.label)}</strong>:
+            const summary = widest ? `<p class="summary">The least predictable peak in ${esc(lastPeriod)} is <strong>${esc(widest.dir)}${DIR_SHORT[widest.dir] ? ` (${DIR_SHORT[widest.dir]})` : ''}, ${esc(widest.label)}</strong>:
                 at its slowest 15 minutes (${esc(widest.last.time)}), speeds on a typical weekday range from ${fmt(widest.last.p25)} to ${fmt(widest.last.p75)} mph.
                 Longer bars mean less predictable trips.</p>` : '';
             return card(this.id, this.title, span(rel.periods), `
