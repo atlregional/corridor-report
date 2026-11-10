@@ -470,7 +470,8 @@ function scanChart(id, { segments, periods, tti, down, title, peaks = [] }) {   
         const W = Math.round(el.clientWidth);
         if (!W) return;
         const narrow = W < 560;
-        const M = { top: 22, right: 4, bottom: 22, left: narrow ? 92 : 150 }, gap = narrow ? 6 : 10;
+        // top margin: year, then the peak labels
+        const M = { top: peaks.length ? 36 : 22, right: 4, bottom: 22, left: narrow ? 92 : 150 }, gap = narrow ? 6 : 10;
         const ph = Math.round(Math.min(Math.max(miles * 28, 170), 440));
         const H = M.top + ph + M.bottom;
         const pw = (W - M.left - M.right - gap * (periods.length - 1)) / periods.length;
@@ -504,7 +505,13 @@ function scanChart(id, { segments, periods, tti, down, title, peaks = [] }) {   
             ctx.strokeStyle = AXIS; ctx.lineWidth = 1;
             ctx.strokeRect(x0 + 0.5, M.top + 0.5, pw - 1, ph - 1);
             ctx.fillStyle = INK; ctx.font = font(narrow ? 12 : 13, 600); ctx.textAlign = 'center';
-            ctx.fillText(period, x0 + pw / 2, 15);
+            ctx.fillText(period, x0 + pw / 2, 14);
+            // peak labels centered over each window ('AM'/'PM' when the window is narrow)
+            ctx.fillStyle = INK_SECONDARY; ctx.font = font(narrow ? 9.5 : 11);
+            peaks.forEach(([a, b], n) => {
+                const label = n === 0 ? 'AM' : 'PM';
+                ctx.fillText(narrow ? label : `${label} peak`, x0 + (a + b) / 2 * cw, M.top - 5);
+            });
             // time of day ticks: midnight (not on narrow panels, where it runs into 6 AM), 6 AM, noon, 6 PM
             ctx.fillStyle = INK_SECONDARY; ctx.font = font(11);
             const ticks = narrow ? [[24, '6a'], [48, '12p'], [72, '6p']] : [[0, '12 AM'], [24, '6 AM'], [48, '12 PM'], [72, '6 PM']];
