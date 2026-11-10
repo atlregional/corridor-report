@@ -352,18 +352,20 @@ const SECTIONS = [
             const blocks = sides.map(([k, arrow]) => {
                 const side = s[k], dirs = side.directions.join(' / ');
                 const w = this.worst(side);
-                const summary = !w ? 'No data.'
-                    : w.v < 1.3 ? `In ${w.period}, traffic flowed close to free-flow speed all day (travel time index under 1.3).`
-                    : `In ${w.period}, the slowest spot was toward ${w.name} around ${timeOfSlot(w.k)} (travel time index ${fmt(w.v, 1)}).`;
+                // b() bolds in the visible sentence; the chart's aria-label gets the plain text
+                const sentence = b => !w ? 'No data.'
+                    : w.v < 1.3 ? `In ${w.period}, traffic flowed close to free-flow speed all day, with a travel time index under 1.3.`
+                    : `In ${w.period}, the slowest spot was toward ${b(w.name)} around ${b(timeOfSlot(w.k))}, with a travel time index of ${fmt(w.v, 1)}.`;
                 const years = side.periods.map(yearLabel).join(', ');
                 return `<h4 class="scan-heading"><span aria-hidden="true">${arrow}</span> ${esc(dirs)}</h4>
-                    <p class="summary">${esc(summary)}</p>
+                    <p class="summary">${sentence(t => `<strong>${esc(t)}</strong>`)}</p>
                     <div class="scan-chart" id="chart-scan-${k}" role="img"
-                        aria-label="${esc(`Heat map of the travel time index ${dirs.toLowerCase()} on ${d.name} by time of day and location, one panel per year (${years}). ${summary}`)}"></div>`;
+                        aria-label="${esc(`Heat map of the travel time index ${dirs.toLowerCase()} on ${d.name} by time of day and location, one panel per year (${years}). ${sentence(t => t)}`)}"></div>`;
             }).join('');
             const legend = `<p class="scan-legend-title">Travel time index</p>
                 <ul class="scan-legend">${TTI_LABELS.map((label, k) => `<li><i style="background:${TTI_COLORS[k]}" aria-hidden="true"></i>${label}</li>`).join('')}
-                    <li><i style="background:${TTI_NO_DATA}" aria-hidden="true"></i>no data</li></ul>`;
+                    <li><i style="background:${TTI_NO_DATA}" aria-hidden="true"></i>no data</li>
+                    <li><i class="peak-key" aria-hidden="true"></i>peak periods (${PEAKS.map(p => p[2]).join(', ')})</li></ul>`;
             return card(this.id, this.title, span(s.periods), blocks + legend +
                 `<p class="chart-note">Each panel runs through the day (across) and along the corridor (down); the arrow shows the direction of travel. Darker means slower. Hover or tap the chart to read the values.</p>` +
                 definition('What is the travel time index?', 'Travel time index = travel time in traffic ÷ travel time at free-flow speed. A value of 1.3 means a trip takes 30% longer than it would with no congestion.'));
@@ -371,7 +373,8 @@ const SECTIONS = [
         after(d) {
             this.shown(d).forEach(([k, , down]) => {
                 const side = d.congestion_scan[k];
-                scanChart(`chart-scan-${k}`, { segments: side.segments, periods: side.periods.map(yearLabel), tti: side.tti, down, title: side.directions.join(' / ') });
+                scanChart(`chart-scan-${k}`, { segments: side.segments, periods: side.periods.map(yearLabel), tti: side.tti, down, title: side.directions.join(' / '),
+                    peaks: [[24, 40], [60, 76]] });   // 15-minute slots of PEAKS: 6–10 AM, 3–7 PM
             });
         },
     },

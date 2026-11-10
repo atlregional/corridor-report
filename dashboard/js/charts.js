@@ -454,7 +454,7 @@ function timeOfSlot(k) {
     return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
 }
 
-function scanChart(id, { segments, periods, tti, down, title }) {
+function scanChart(id, { segments, periods, tti, down, title, peaks = [] }) {   // peaks: [[startSlot, endSlot], ...]
     const el = document.getElementById(id);
     if (!el) return;
     const canvas = document.createElement('canvas');
@@ -493,6 +493,14 @@ function scanChart(id, { segments, periods, tti, down, title }) {
                     ctx.fillRect(x0 + k * cw, y0, cw + 0.6, Math.max(y1 - y0, 0.5) + 0.3);
                 });
             });
+            // peak windows: dashed lines at their start and end, with a white edge to show over dark cells
+            peaks.flat().forEach(k => {
+                const x = Math.round(x0 + k * cw) + 0.5;
+                ctx.beginPath(); ctx.moveTo(x, M.top); ctx.lineTo(x, M.top + ph);
+                ctx.setLineDash([]); ctx.strokeStyle = 'rgb(255 255 255 / .85)'; ctx.lineWidth = 3; ctx.stroke();
+                ctx.setLineDash([4, 3]); ctx.strokeStyle = INK; ctx.lineWidth = 1.25; ctx.stroke();
+            });
+            ctx.setLineDash([]);
             ctx.strokeStyle = AXIS; ctx.lineWidth = 1;
             ctx.strokeRect(x0 + 0.5, M.top + 0.5, pw - 1, ph - 1);
             ctx.fillStyle = INK; ctx.font = font(narrow ? 12 : 13, 600); ctx.textAlign = 'center';
@@ -517,6 +525,7 @@ function scanChart(id, { segments, periods, tti, down, title }) {
             return `${text}…`;
         };
         let lastY = -Infinity, lastName = null;
+        const labels = [];      // where each label is drawn, for the full-name tooltip
         const order = segments.map((g, r) => r);
         (down ? order : order.reverse()).forEach(r => {
             const name = segments[r].name;
@@ -524,10 +533,12 @@ function scanChart(id, { segments, periods, tti, down, title }) {
             if (name === lastName || Math.abs(at - lastY) < 13) return;
             ctx.fillStyle = AXIS; ctx.fillRect(M.left - 6, at - 0.5, 5, 1);
             ctx.fillStyle = INK;
-            ctx.fillText(fit(name), M.left - 9, Math.min(Math.max(at + 4, M.top + 9), M.top + ph + 4));
+            const baseline = Math.min(Math.max(at + 4, M.top + 9), M.top + ph + 4);
+            ctx.fillText(fit(name), M.left - 9, baseline);
+            labels.push({ name, y: baseline - 4 });
             lastY = at; lastName = name;
         });
-        layout = { M, gap, pw, ph, y };
+        layout = { M, gap, pw, ph, y, labels };
     };
 
     const ro = new ResizeObserver(draw);
@@ -549,7 +560,18 @@ function scanChart(id, { segments, periods, tti, down, title }) {
         const k = Math.min(Math.floor(xin / pw * 96), 95);
         return r < 0 ? null : { p, r, k };
     };
+    // the cross-street label under the pointer (labels can be cut short on narrow screens)
+    const labelAt = e => {
+        if (!layout) return null;
+        const r0 = canvas.getBoundingClientRect();
+        const x = e.clientX - r0.left, yy = e.clientY - r0.top;
+        if (x >= layout.M.left - 4) return null;
+        const hit = layout.labels.reduce((best, l) => Math.abs(l.y - yy) < Math.abs((best?.y ?? Infinity) - yy) ? l : best, null);
+        return hit && Math.abs(hit.y - yy) <= 8 ? hit : null;
+    };
     const show = e => {
+        const label = labelAt(e);
+        if (label) { Tooltip.show(`<strong>${esc(label.name)}</strong>`, e.clientX, e.clientY); return; }
         const c = cellAt(e);
         if (!c) { Tooltip.hide(); return; }
         const v = tti[c.p][c.r][c.k], g = segments[c.r];
