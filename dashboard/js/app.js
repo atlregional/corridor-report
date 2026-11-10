@@ -193,11 +193,11 @@ const App = {
         return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     },
 
-    /* scroll to the report and move focus to its heading */
+    /* scroll to the top of the report header (the 'Corridor report' kicker shows) and move focus to its heading */
     viewReport() {
         const h = document.getElementById('report-title');
         h.focus({ preventScroll: true });
-        h.scrollIntoView({ behavior: this.reducedMotion() ? 'auto' : 'smooth' });
+        h.closest('.report-header').scrollIntoView({ behavior: this.reducedMotion() ? 'auto' : 'smooth' });
     },
 
     overviewStyle(f) {

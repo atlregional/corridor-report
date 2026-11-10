@@ -201,7 +201,7 @@ input[type="search"], select {
 .report-subtitle { font-size: 1.05rem; }
 .report-roads { margin: .15rem 0 .35rem; font-size: 1.2rem; font-weight: 600; }
 
-.report-header { border-radius: var(--radius); margin-bottom: 1.25rem; }
+.report-header { border-radius: var(--radius); margin-bottom: 1.25rem; scroll-margin-top: 1rem; }
 
 #report-body { display: grid; gap: 1.25rem; grid-template-columns: minmax(0, 1fr); }
 .card { scroll-margin-top: 1rem; }
