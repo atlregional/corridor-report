@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-31",
+ "updated": "2026-11-09",
  "reporting_year": 2026,
  "analysis_periods": [
   "Jan 1\u2013Oct 26, 2024",
@@ -50,9 +50,9 @@
    "unknown": 0
   },
   "causes": {
-   "current": 0,
-   "historical": 344,
-   "unavailable": 16,
+   "current": 347,
+   "historical": 1,
+   "unavailable": 12,
    "unknown": 0
   },
   "road": {

@@ -103,7 +103,7 @@ const SECTIONS = [
                 ? `<p class="unavailable">Traffic counts are not available for express lanes; GDOT counts the whole freeway.
                     See <a href="?cor=${hov.id}">${esc(hov.name)}</a> for its daily traffic.</p>`
                 : years.length
-                    ? tableHtml('Average annual daily traffic (AADT), both directions', trucks ? ['Year', 'Vehicles per day', 'Trucks'] : ['Year', 'Vehicles per day'],
+                    ? tableHtml('Avg. annual daily traffic (AADT), both directions', trucks ? ['Year', 'Vehicles per day', 'Trucks'] : ['Year', 'Vehicles per day'],
                         years.map(a => trucks ? [a.period, fmt(a.aadt), a.truck_pct == null ? '–' : `${fmt(a.truck_pct, 1)}%`] : [a.period, fmt(a.aadt)]))
                       + `<p class="table-source">GDOT traffic counts: median of ${d.aadt.stations} count station${d.aadt.stations === 1 ? '' : 's'} along the corridor.</p>`
                     : '';
@@ -144,8 +144,8 @@ const SECTIONS = [
                 <div class="stats">
                     ${stat('Cost of delay', `$${fmt(dc.cost)}`, totalNote)}
                     ${stat('Vehicle-hours of delay', fmt(dc.vehicle_hours), totalNote)}
-                    ${stat('Average daily cost of delay', dailyCost == null ? fmt(null) : `$${fmt(dailyCost)}`, dailyNote)}
-                    ${stat('Average daily vehicle-hours of delay', fmt(dailyHours, 1), dailyNote)}
+                    ${stat('Avg. daily cost of delay', dailyCost == null ? fmt(null) : `$${fmt(dailyCost)}`, dailyNote)}
+                    ${stat('Avg. daily vehicle-hours of delay', fmt(dailyHours, 1), dailyNote)}
                 </div>
                 ${definition('How is delay cost calculated?',
                     'Delay is the extra travel time compared with free-flow conditions, multiplied by traffic volume. It is valued at RITIS defaults for passenger vehicles (per person-hour × 1.7 people per vehicle) and commercial vehicles.')}`);
@@ -163,19 +163,19 @@ const SECTIONS = [
             return card(this.id, this.title, span(b.periods), `
                 <div class="stats">
                     <div class="stat stat-wide"><span class="stat-label">Key bottleneck location</span><span class="stat-value stat-text">${esc(b.location)}</span></div>
-                    ${stat(`Average daily duration, ${esc(yearLabel(b.periods[k]))}`, esc((r.daily_duration[k] ?? '–').trim()), 'of congestion per day')}
-                    ${stat(`Average maximum queue, ${esc(yearLabel(b.periods[k]))}`, `${fmt(r.max_length_mi[k], 2)} mi`)}
+                    ${stat(`Avg. daily duration, ${esc(yearLabel(b.periods[k]))}`, esc((r.daily_duration[k] ?? '–').trim()), 'of congestion per day')}
+                    ${stat(`Avg. maximum queue, ${esc(yearLabel(b.periods[k]))}`, `${fmt(r.max_length_mi[k], 2)} mi`)}
                     ${stat(`Events and incidents, ${esc(yearLabel(b.periods[k]))}`, fmt(r.events[k]))}
                 </div>
                 ${dataTableDetails(`Key bottleneck measures by year at ${b.location}`, ['Measure', ...b.periods.map(yearLabel)], [
                     ['Events and incidents', ...r.events.map(v => fmt(v))],
-                    ['Average maximum queue length (miles)', ...r.max_length_mi.map(v => fmt(v, 2))],
-                    ['Average daily duration of congestion', ...r.daily_duration.map(v => (v ?? '–').trim())],
+                    ['Avg. maximum queue length (miles)', ...r.max_length_mi.map(v => fmt(v, 2))],
+                    ['Avg. daily duration of congestion', ...r.daily_duration.map(v => (v ?? '–').trim())],
                 ], 'Show all years')}
                 ${definition('What do these measures mean?', [
                     ['Key bottleneck location', 'the bottleneck that appears in the RITIS bottleneck ranking for this corridor in the most years; ties go to the one ranked highest in the most recent year.'],
-                    ['Average daily duration', 'the average time per day that congestion is detected at the bottleneck.'],
-                    ['Average maximum queue', 'the average length of the queue formed by congestion.'],
+                    ['Avg. daily duration', 'the average time per day that congestion is detected at the bottleneck.'],
+                    ['Avg. maximum queue', 'the average length of the queue formed by congestion.'],
                     ['Events and incidents', 'traffic events and incidents reported within the bottleneck segment.'],
                 ])}`);
         },
@@ -258,7 +258,7 @@ const SECTIONS = [
             return card(this.id, this.title, span(t.periods), `
                 <h4>Slowest peak-hour travel time, ${esc(last)} weekdays</h4>
                 <div class="stats">${tiles.join('')}</div>
-                <h4>Average weekday travel time through the corridor</h4>
+                <h4>Avg. weekday travel time through the corridor</h4>
                 ${legendHtml(t.periods.map(yearLabel), SERIES_COLORS, 'tod')}
                 <div class="grid-2">${panels}</div>
                 <p class="period-note">The shaded band shows the typical range (25th–75th percentile) for ${esc(last)}. Hover or tap a chart to read the values at any time of day.</p>
@@ -309,9 +309,9 @@ const SECTIONS = [
                 <p class="candle-key" aria-hidden="true">
                     ${key('<rect x="2" y="3" width="10" height="14" rx="2" fill="#767b85"/>')} typical days (25th–75th percentile)
                     ${key('<line x1="7" x2="7" y1="2" y2="18" stroke="#767b85" stroke-width="1.5" stroke-dasharray="2 2"/><line x1="2" x2="12" y1="2" y2="2" stroke="#1f2328" stroke-width="2.5"/><line x1="2" x2="12" y1="18" y2="18" stroke="#1f2328" stroke-width="2.5"/>')} best and worst days (5th and 95th percentile)
-                    ${key('<circle cx="7" cy="10" r="4" fill="#fff" stroke="#1f2328" stroke-width="1.5"/>')} average</p>
+                    ${key('<circle cx="7" cy="10" r="4" fill="#fff" stroke="#1f2328" stroke-width="1.5"/>')} avg.</p>
                 ${blocks}
-                ${dataTableDetails('Average peak travel time in minutes by weekday', ['Direction, peak, and year', ...WEEKDAYS], rows)}`);
+                ${dataTableDetails('Avg. peak travel time in minutes by weekday', ['Direction, peak, and year', ...WEEKDAYS], rows)}`);
         },
         after(d) {
             const p = d.peak_period;
@@ -454,7 +454,7 @@ const SECTIONS = [
             const peakHour = e.by_hour.hours[e.by_hour.co2.indexOf(Math.max(...e.by_hour.co2))];
 
             return card(this.id, this.title, span(e.periods), `
-                <h4>Average day, ${esc(year(last.period))}</h4>
+                <h4>Avg. day, ${esc(year(last.period))}</h4>
                 <div class="stats stats-4">
                     ${stat('Vehicle-miles traveled', fmt(day(last, last.vmt)))}
                     ${stat('CO₂', `${fmt(day(last, last.co2), 1)} t`)}
@@ -465,11 +465,11 @@ const SECTIONS = [
                     ${stat('HC', `${fmt(day(last, last.hc, KG))} kg`)}
                     ${density}
                 </div>
-                ${hourly ? `<h4>CO₂ per corridor mile by hour of day, average day, ${esc(year(last.period))}</h4>
+                ${hourly ? `<h4>CO₂ per corridor mile by hour of day, avg. day, ${esc(year(last.period))}</h4>
                 ${cmp ? legendHtml(['This corridor', `Median of ${cmp.count} corridors`], [SINGLE_COLOR, INK_SECONDARY]) : ''}
                 ${chartCanvas('chart-emissions-hour', `Line chart of CO2 emissions per corridor mile by hour of an average day on ${d.name} in ${year(last.period)}, highest at ${peakHour}${cmp ? `, compared with the median and middle half of ${cmp.count} corridors` : ''}. Hover or tap the chart to read the values.`)}
                 ${cmp ? `<p class="period-note">The shaded band shows the middle half of corridors (25th–75th percentile). Hover or tap the chart to read the values at any hour.</p>` : ''}` : ''}
-                ${dataTableDetails('Emissions on an average day, by year', ['Year', 'Vehicle-miles', 'CO₂ (t)', 'NOx (kg)', 'PM2.5 (g)', 'CO (kg)', 'VOC (kg)', 'HC (kg)'],
+                ${dataTableDetails('Emissions on an avg. day, by year', ['Year', 'Vehicle-miles', 'CO₂ (t)', 'NOx (kg)', 'PM2.5 (g)', 'CO (kg)', 'VOC (kg)', 'HC (kg)'],
                     e.totals.map(t => [year(t.period), fmt(day(t, t.vmt)), fmt(day(t, t.co2), 1), fmt(day(t, t.nox, KG)), fmt(day(t, t.pm25, G)),
                         fmt(day(t, t.co, KG)), fmt(day(t, t.voc, KG)), fmt(day(t, t.hc, KG))]), 'Show all pollutants by year')}
                 <details><summary>Show emissions by vehicle engine type</summary>${tableHtml(`Share by engine type (from vehicle registrations), ${year(last.period)} (%)`,
@@ -558,7 +558,7 @@ const SECTIONS = [
                 <h4>Score by factor</h4>
                 <div class="chart-legend" aria-hidden="true">
                     <span><i style="background:#d03b3b"></i>This corridor</span>
-                    <span><i class="dash-key"></i>Average of all corridors</span>
+                    <span><i class="dash-key"></i>Avg. of all corridors</span>
                 </div>
                 ${chartCanvas('chart-equity-radar', `Radar chart of the nine equity factor scores (0 to 4) for ${d.name}, compared with the average of all corridors: ${values}.`, { cls: 'chart-radar' })}`);
         },
@@ -574,7 +574,7 @@ const SECTIONS = [
             radarChart('chart-equity-radar', {
                 labels: keys.map(k => this.names[k] ?? k), max: 4,
                 series: [
-                    { label: 'Average of all corridors', data: keys.map(k => this.average(k)), color: '#4f5560', dashed: true },
+                    { label: 'Avg. of all corridors', data: keys.map(k => this.average(k)), color: '#4f5560', dashed: true },
                     { label: 'This corridor', data: keys.map(k => d.equity.factors[k]), color: '#d03b3b', fill: 'rgba(208, 59, 59, 0.15)' },
                 ],
             });

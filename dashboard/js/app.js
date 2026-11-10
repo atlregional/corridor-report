@@ -301,7 +301,7 @@ const App = {
             });
 
             // zoomed out: 0.1-mile averages on the corridor line (continuous); zoomed in: raw NIRA sub-segments
-            this.roadLayers = [lineLayer(raw, ''), lineLayer(bins, '<br>Average over 0.1 mile, both directions')];
+            this.roadLayers = [lineLayer(raw, ''), lineLayer(bins, '<br>Avg. over 0.1 mile, both directions')];
             const ZOOM_RAW = 15;
             const swap = () => {
                 const [rawLayer, binLayer] = this.roadLayers;

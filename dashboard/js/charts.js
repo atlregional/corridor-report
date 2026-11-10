@@ -427,7 +427,7 @@ function candleChart(id, { categories, categoryNames = {}, series, yMin, yMax, y
         const k = +g.dataset.k, cat = g.dataset.cat;
         const v = series[k].values[cat];
         return `<strong>${esc(categoryNames[cat] ?? cat)}, ${esc(series[k].label)}</strong>
-            <span>Average: ${fmt(v[2], 1)}${unit}</span>
+            <span>Avg.: ${fmt(v[2], 1)}${unit}</span>
             <span>Typical (25th–75th): ${fmt(v[1], 1)}–${fmt(v[3], 1)}${unit}</span>
             <span>Best/worst days (5th–95th): ${fmt(v[0], 1)}–${fmt(v[4], 1)}${unit}</span>`;
     });
