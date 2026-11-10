@@ -116,7 +116,7 @@ const Tooltip = {
 };
 document.addEventListener('keydown', e => { if (e.key === 'Escape') Tooltip.hide(); });
 document.addEventListener('pointerdown', e => {
-    if (e.pointerType === 'touch' && !e.target.closest('.svg-chart, .condition-bar')) Tooltip.hide();
+    if (e.pointerType === 'touch' && !e.target.closest('.svg-chart, .condition-bar, .scan-chart')) Tooltip.hide();
 });
 
 /* show a tooltip for elements matching selector inside container; html(el) builds the content */
@@ -432,6 +432,134 @@ function candleChart(id, { categories, categoryNames = {}, series, yMin, yMax, y
             <span>Best/worst days (5th–95th): ${fmt(v[0], 1)}–${fmt(v[4], 1)}${unit}</span>`;
     });
     if (group) onLegend(group, (k, visible) => { visible ? hidden.delete(k) : hidden.add(k); handle.redraw(); });
+}
+
+/* Congestion scan heat map on a canvas: one panel per period, side by side; time of day across
+   (96 × 15 minutes), road down (rows sized by segment length). Cross streets are labeled on the left
+   at each segment's downstream end (bottom edge when traffic runs down, top edge when it runs up).
+   Colors: one ramp, light (free flow) to dark (slow), in the travel time index bands below. */
+const TTI_BANDS = [1.1, 1.3, 1.6, 1.8, 2, 2.5];
+const TTI_COLORS = ['#fcfdbf', '#fec98d', '#fd9567', '#f1605d', '#cd4071', '#9e2f7f', '#5c167f'];
+const TTI_NO_DATA = '#c8c8c8';
+const TTI_LABELS = ['under 1.1', '1.1–1.3', '1.3–1.6', '1.6–1.8', '1.8–2', '2–2.5', '2.5 and over'];
+
+function ttiColor(v) {
+    if (v == null) return TTI_NO_DATA;
+    const k = TTI_BANDS.findIndex(b => v < b);
+    return TTI_COLORS[k === -1 ? TTI_COLORS.length - 1 : k];
+}
+
+function timeOfSlot(k) {
+    const minutes = k * 15, h = Math.floor(minutes / 60), m = minutes % 60;
+    return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+}
+
+function scanChart(id, { segments, periods, tti, down, title }) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const canvas = document.createElement('canvas');
+    canvas.setAttribute('aria-hidden', 'true');
+    el.appendChild(canvas);
+    const miles = segments.reduce((s, g) => s + g.miles, 0);
+    // row edges in miles from the top
+    const edges = [0];
+    segments.forEach(g => edges.push(edges[edges.length - 1] + g.miles));
+    let layout = null;
+
+    const draw = () => {
+        const W = Math.round(el.clientWidth);
+        if (!W) return;
+        const narrow = W < 560;
+        const M = { top: 22, right: 4, bottom: 22, left: narrow ? 92 : 150 }, gap = narrow ? 6 : 10;
+        const ph = Math.round(Math.min(Math.max(miles * 28, 170), 440));
+        const H = M.top + ph + M.bottom;
+        const pw = (W - M.left - M.right - gap * (periods.length - 1)) / periods.length;
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = W * dpr; canvas.height = H * dpr;
+        canvas.style.width = `${W}px`; canvas.style.height = `${H}px`;
+        const ctx = canvas.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, W, H);
+        const y = mi => M.top + mi / miles * ph;
+        const font = (size, weight = 400) => `${weight} ${size}px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
+
+        periods.forEach((period, p) => {
+            const x0 = M.left + p * (pw + gap), cw = pw / 96;
+            tti[p].forEach((row, r) => {
+                const y0 = y(edges[r]), y1 = y(edges[r + 1]);
+                row.forEach((v, k) => {
+                    ctx.fillStyle = ttiColor(v);
+                    // overlap by a fraction of a pixel so no hairline gaps show between cells
+                    ctx.fillRect(x0 + k * cw, y0, cw + 0.6, Math.max(y1 - y0, 0.5) + 0.3);
+                });
+            });
+            ctx.strokeStyle = AXIS; ctx.lineWidth = 1;
+            ctx.strokeRect(x0 + 0.5, M.top + 0.5, pw - 1, ph - 1);
+            ctx.fillStyle = INK; ctx.font = font(narrow ? 12 : 13, 600); ctx.textAlign = 'center';
+            ctx.fillText(period, x0 + pw / 2, 15);
+            // time of day ticks: midnight (not on narrow panels, where it runs into 6 AM), 6 AM, noon, 6 PM
+            ctx.fillStyle = INK_SECONDARY; ctx.font = font(11);
+            const ticks = narrow ? [[24, '6a'], [48, '12p'], [72, '6p']] : [[0, '12 AM'], [24, '6 AM'], [48, '12 PM'], [72, '6 PM']];
+            ticks.forEach(([k, label]) => {
+                const x = x0 + k * cw;
+                ctx.fillRect(x, M.top + ph, 1, 4);
+                ctx.textAlign = k === 0 ? 'left' : 'center';
+                ctx.fillText(label, x, M.top + ph + 15);
+            });
+        });
+
+        // cross streets, skipping repeats and labels that would overlap the previous one
+        ctx.font = font(narrow ? 10.5 : 12); ctx.textAlign = 'right'; ctx.fillStyle = INK;
+        const fit = text => {
+            const max = M.left - 10;
+            if (ctx.measureText(text).width <= max) return text;
+            while (text.length > 1 && ctx.measureText(`${text}…`).width > max) text = text.slice(0, -1);
+            return `${text}…`;
+        };
+        let lastY = -Infinity, lastName = null;
+        const order = segments.map((g, r) => r);
+        (down ? order : order.reverse()).forEach(r => {
+            const name = segments[r].name;
+            const at = y(down ? edges[r + 1] : edges[r]);
+            if (name === lastName || Math.abs(at - lastY) < 13) return;
+            ctx.fillStyle = AXIS; ctx.fillRect(M.left - 6, at - 0.5, 5, 1);
+            ctx.fillStyle = INK;
+            ctx.fillText(fit(name), M.left - 9, Math.min(Math.max(at + 4, M.top + 9), M.top + ph + 4));
+            lastY = at; lastName = name;
+        });
+        layout = { M, gap, pw, ph, y };
+    };
+
+    const ro = new ResizeObserver(draw);
+    ro.observe(el);
+    draw();
+    charts[id] = { el, destroy: () => ro.disconnect() };
+
+    const cellAt = e => {
+        if (!layout) return null;
+        const r0 = canvas.getBoundingClientRect();
+        const x = e.clientX - r0.left, yy = e.clientY - r0.top;
+        const { M, gap, pw, ph } = layout;
+        if (yy < M.top || yy >= M.top + ph || x < M.left) return null;
+        const p = Math.floor((x - M.left) / (pw + gap));
+        const xin = x - M.left - p * (pw + gap);
+        if (p < 0 || p >= periods.length || xin > pw) return null;
+        const mi = (yy - M.top) / ph * miles;
+        const r = Math.min(edges.findIndex(v => v > mi) - 1, segments.length - 1);
+        const k = Math.min(Math.floor(xin / pw * 96), 95);
+        return r < 0 ? null : { p, r, k };
+    };
+    const show = e => {
+        const c = cellAt(e);
+        if (!c) { Tooltip.hide(); return; }
+        const v = tti[c.p][c.r][c.k], g = segments[c.r];
+        Tooltip.show(`<strong>${esc(title)}, ${esc(periods[c.p])}</strong>
+            <span>${esc(g.direction)} toward ${esc(g.name)} (${fmt(g.miles, 2)} mi)</span>
+            <span>${timeOfSlot(c.k)}: ${v == null ? 'no data' : `travel time index ${fmt(v, 1)}`}</span>`, e.clientX, e.clientY);
+    };
+    canvas.addEventListener('pointermove', show);
+    canvas.addEventListener('pointerdown', show);
+    canvas.addEventListener('pointerleave', e => { if (e.pointerType !== 'touch') Tooltip.hide(); });
 }
 
 /* Dot plot: one dot per item, stacked in columns by integer value. The highlighted item is

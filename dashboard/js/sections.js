@@ -1,7 +1,6 @@
 /* Report sections. Each section returns its card HTML (or null when there is no data)
    and can draw charts/maps after the card is in the page. */
 
-const REPORT_BASE = 'report/';
 const DAY_NAMES = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday' };
 const WEEKDAYS = Object.keys(DAY_NAMES);
 const PEAKS = [['am', 'AM peak', '6–10 AM'], ['pm', 'PM peak', '3–7 PM']];
@@ -41,69 +40,6 @@ function definition(question, answer) {
 
 function stat(label, value, note = '') {
     return `<div class="stat"><span class="stat-label">${label}</span><span class="stat-value">${value}</span>${note ? `<span class="stat-note">${note}</span>` : ''}</div>`;
-}
-
-/* Congestion scan PNG (always exported at 1902 px wide): three panels per direction, mirrored around
-   the road diagram, newest year outermost. Hides the cut-off title rows at the top and labels each
-   side with its direction (left panels run down the road diagram, right panels up) and each panel
-   with its year. On phones the image is split into one view per direction (each with the road
-   diagram), stacked, without the legend at the bottom; an HTML legend replaces it.
-   Edges in image pixels; legend colors sampled from the image. */
-const SCAN = {
-    width: 1902, height: 834, top: 81, plotBottom: 762,
-    panels: [[0, 268], [273, 541], [546, 813], [1089, 1356], [1361, 1628], [1633, 1901]],
-    sides: { left: [0, 813, '↓'], right: [1089, 1901, '↑'] },
-    halves: { left: [0, 1087], right: [816, 1902] },
-    legend: [['under 1.1', '#009245'], ['1.1–1.3', '#8cc63f'], ['1.3–1.6', '#fcee21'], ['1.6–1.8', '#f7931e'],
-             ['1.8–2', '#ed1c24'], ['2–2.5', '#c1272d'], ['2.5 and over', '#93278f']],
-};
-
-function scanFigure(src, periods, directions, alt, caption) {
-    const url = REPORT_BASE + src;
-    const years = (periods ?? []).map(yearLabel);
-    const order = years.length === 3 ? [...years].reverse().concat(years) : [];
-    const sides = Object.keys(SCAN.sides).filter(side => directions?.[side]?.length);
-    // 'Westbound / Southbound' when the corridor turns (top part first)
-    const dirText = side => directions[side].join(' / ');
-
-    // one cropped view of the image, x0-x1 by top-y1, with labels for the sides and panels inside it
-    const view = (x0, x1, y1, altText) => {
-        const w = x1 - x0;
-        const pct = px => `${(px / w * 100).toFixed(3)}%`;
-        const place = (a, b) => `left:${pct(a - x0)};width:${pct(b - a)}`;
-        const inside = ([a, b]) => a >= x0 && b <= x1;
-        const dirs = sides.filter(side => inside(SCAN.sides[side]));
-        const panels = SCAN.panels.map((p, k) => [p, order[k]]).filter(([p, year]) => year && inside(p));
-        const dirRow = dirs.length ? `<div class="scan-labels scan-dirs" aria-hidden="true">${dirs.map(side => {
-            const [a, b, arrow] = SCAN.sides[side];
-            return `<span style="${place(a, b)}">${arrow} ${esc(dirText(side))}</span>`;
-        }).join('')}</div>` : '';
-        const yearRow = panels.length ? `<div class="scan-labels" aria-hidden="true">${panels.map(([[a, b], year]) =>
-            `<span style="${place(a, b)}">${esc(year)}</span>`).join('')}</div>` : '';
-        const crop = `aspect-ratio:${w}/${y1 - SCAN.top}`;
-        const img = `width:${pct(SCAN.width)};margin-left:-${pct(x0)};margin-top:-${pct(SCAN.top)}`;
-        return `<div class="scan-view">${dirRow}${yearRow}
-            <div class="scan-crop" style="${crop}"><img src="${esc(url)}" alt="${esc(altText)}" loading="lazy" style="${img}"></div>
-        </div>`;
-    };
-
-    const sideText = side => `${side === 'left' ? 'Left' : 'Right'} panels: ${directions[side].join(' and ').toLowerCase()}.`;
-    let fullAlt = alt;
-    if (sides.length) fullAlt += ' ' + sides.map(sideText).join(' ');
-    if (order.length) fullAlt += ` Panels from left to right: ${order.join(', ')}.`;
-    const halfAlt = (side, k) => k === 0 ? fullAlt
-        : `Congestion scan continued${directions?.[side]?.length ? `: ${directions[side].join(' and ').toLowerCase()} panels` : ''}.`;
-    const legend = `<ul class="scan-legend">${SCAN.legend.map(([label, color]) =>
-        `<li><i style="background:${color}" aria-hidden="true"></i>${label}</li>`).join('')}</ul>`;
-
-    return `<figure>
-        <div class="scan scan-wide">${view(0, SCAN.width, SCAN.height, fullAlt)}</div>
-        <div class="scan scan-split">${Object.entries(SCAN.halves).map(([side, [a, b]], k) =>
-            view(a, b, SCAN.plotBottom, halfAlt(side, k))).join('')}
-            <p class="scan-legend-title">Travel time index</p>${legend}
-        </div>
-        <figcaption>${caption} <a href="${esc(url)}" target="_blank" rel="noopener">Open full-size image<span class="visually-hidden"> (opens in a new tab)</span></a></figcaption>
-    </figure>`;
 }
 
 /* 1 -> '1st', 13 -> '13th', 22 -> '22nd' */
@@ -391,14 +327,52 @@ const SECTIONS = [
     /* ---------- congestion scan ---------- */
     {
         id: 'congestion', title: 'Congestion by location and time of day',
+        // left side runs down the road diagram (westbound/southbound), right side up
+        sides: [['left', '↓', true], ['right', '↑', false]],
+        shown(d) {
+            return d.congestion_scan ? this.sides.filter(([k]) => d.congestion_scan[k]?.segments.length) : [];
+        },
+        /* the slowest cell in the latest period (segments under 0.1 mi only if nothing else) */
+        worst(s) {
+            const p = s.tti.length - 1;
+            let best = null;
+            s.tti[p].forEach((row, r) => row.forEach((v, k) => {
+                if (v == null) return;
+                const long = s.segments[r].miles >= 0.1;
+                if (!best || (long && !best.long) || (long === best.long && v > best.v)) best = { v, r, k, long };
+            }));
+            return best && { ...best, period: yearLabel(s.periods[p]), name: s.segments[best.r].name };
+        },
         render(d) {
-            const body = d.congestion_scan
-                ? `<div class="wide-image">${scanFigure(d.congestion_scan.image, d.congestion_scan.periods, d.congestion_scan.directions,
-                    `Heat map of the travel time index along ${d.name} by time of day, one panel per direction and year. Green means near free-flow; yellow to red means slower; purple means more than 2.5 times the free-flow travel time.`,
-                    'Each panel runs along the corridor (vertical) and through the day (horizontal). Colors show the travel time index: 1.0 is free flow; 2.0 means trips take twice as long. For numbers by time of day, see the travel time section above.')}</div>`
-                : `<p class="unavailable">A congestion scan is not available for this corridor.</p>`;
-            return card(this.id, this.title, span(d.congestion_scan?.periods), body +
+            const sides = this.shown(d);
+            if (!sides.length) {
+                return card(this.id, this.title, '', `<p class="unavailable">A congestion scan is not available for this corridor.</p>`);
+            }
+            const s = d.congestion_scan;
+            const blocks = sides.map(([k, arrow]) => {
+                const side = s[k], dirs = side.directions.join(' / ');
+                const w = this.worst(side);
+                const summary = !w ? 'No data.'
+                    : w.v < 1.3 ? `In ${w.period}, traffic flowed close to free-flow speed all day (travel time index under 1.3).`
+                    : `In ${w.period}, the slowest spot was toward ${w.name} around ${timeOfSlot(w.k)} (travel time index ${fmt(w.v, 1)}).`;
+                const years = side.periods.map(yearLabel).join(', ');
+                return `<h4 class="scan-heading"><span aria-hidden="true">${arrow}</span> ${esc(dirs)}</h4>
+                    <p class="summary">${esc(summary)}</p>
+                    <div class="scan-chart" id="chart-scan-${k}" role="img"
+                        aria-label="${esc(`Heat map of the travel time index ${dirs.toLowerCase()} on ${d.name} by time of day and location, one panel per year (${years}). ${summary}`)}"></div>`;
+            }).join('');
+            const legend = `<p class="scan-legend-title">Travel time index</p>
+                <ul class="scan-legend">${TTI_LABELS.map((label, k) => `<li><i style="background:${TTI_COLORS[k]}" aria-hidden="true"></i>${label}</li>`).join('')}
+                    <li><i style="background:${TTI_NO_DATA}" aria-hidden="true"></i>no data</li></ul>`;
+            return card(this.id, this.title, span(s.periods), blocks + legend +
+                `<p class="chart-note">Each panel runs through the day (across) and along the corridor (down); the arrow shows the direction of travel. Darker means slower. Hover or tap the chart to read the values.</p>` +
                 definition('What is the travel time index?', 'Travel time index = travel time in traffic ÷ travel time at free-flow speed. A value of 1.3 means a trip takes 30% longer than it would with no congestion.'));
+        },
+        after(d) {
+            this.shown(d).forEach(([k, , down]) => {
+                const side = d.congestion_scan[k];
+                scanChart(`chart-scan-${k}`, { segments: side.segments, periods: side.periods.map(yearLabel), tti: side.tti, down, title: side.directions.join(' / ') });
+            });
         },
     },
 

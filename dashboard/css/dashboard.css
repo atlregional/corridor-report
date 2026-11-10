@@ -222,31 +222,16 @@ figure { margin: 0; }
 figure img { display: block; border: 1px solid var(--hairline); border-radius: 6px; background: #fff; }
 figcaption { font-size: .95rem; color: var(--ink-secondary); margin-top: .4rem; }
 
-.wide-image { overflow-x: auto; }
-.wide-image img { min-width: 640px; }
-@media (max-width: 700px) { .wide-image img { min-width: 0; } }
-
-/* congestion scan: direction over each side and year over each panel; the image's cut-off title rows are
-   hidden. Phones get .scan-split (one view per direction, stacked, HTML legend) instead of .scan-wide. */
-.scan-wide { min-width: 640px; }
-.scan-split { display: none; }
-.scan-crop { overflow: hidden; }
-.scan-crop img { display: block; max-width: none; min-width: 0; }
-.scan-labels { position: relative; height: 1.5rem; }
-.scan-labels > span { position: absolute; top: 0; text-align: center; font-weight: 600; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.scan-dirs { border-bottom: 1px solid var(--hairline); margin-bottom: .25rem; }
-.scan-dirs > span { font-size: 1rem; }
-.scan-legend-title { margin: .75rem 0 .25rem; font-weight: 600; font-size: .85rem; }
-.scan-legend { display: flex; flex-wrap: wrap; gap: .25rem .75rem; margin: 0; padding: 0; list-style: none; font-size: .8rem; }
-.scan-legend li { display: flex; align-items: center; gap: .3rem; }
-.scan-legend i { width: .9rem; height: .9rem; border-radius: 2px; box-shadow: inset 0 0 0 1px rgb(0 0 0 / .25); }
-@media (max-width: 700px) {
-    .scan-wide { display: none; }
-    .scan-split { display: block; }
-    .scan-view + .scan-view { margin-top: 1rem; }
-    .scan-labels > span { font-size: .8rem; }
-    .scan-dirs > span { font-size: .85rem; }
-}
+/* congestion scan heat maps (drawn by scanChart in charts.js), one per direction */
+.scan-heading { margin: 1.25rem 0 .25rem; }
+.scan-heading:first-of-type { margin-top: .5rem; }
+.scan-chart { position: relative; margin: .5rem 0 1rem; touch-action: pan-y; }
+.scan-chart canvas { display: block; }
+.scan-legend-title { margin: .5rem 0 .25rem; font-weight: 600; font-size: .9rem; }
+.scan-legend { display: flex; flex-wrap: wrap; gap: .25rem .9rem; margin: 0; padding: 0; list-style: none; font-size: .85rem; }
+.scan-legend li { display: flex; align-items: center; gap: .35rem; }
+.scan-legend i { width: .95rem; height: .95rem; border-radius: 2px; box-shadow: inset 0 0 0 1px rgb(0 0 0 / .25); }
+.chart-note { font-size: .95rem; color: var(--ink-secondary); margin: .75rem 0 0; }
 
 .unavailable {
     padding: 1rem; border: 1px dashed #8a8f98; border-radius: 6px;
