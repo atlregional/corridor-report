@@ -502,7 +502,8 @@ function scanChart(id, { segments, periods, tti, down, title, peaks = [], years 
         const compact = W < 560;
         // top margin: year, then the peak labels
         const M = { top: peaks.length ? 36 : 22, right: 4, bottom: 22, left: compact ? 92 : 150 }, gap = compact ? 6 : 10;
-        const ph = Math.round(Math.min(Math.max(miles * 28, 170), 440));
+        // plot height: 200 px up to 5 miles, then 25 px per mile, up to 450 px at 15 miles
+        const ph = Math.round(200 + Math.min(Math.max(miles - 5, 0), 10) * 25);
         const H = M.top + ph + M.bottom;
         const pw = (W - M.left - M.right - gap * (idx.length - 1)) / idx.length;
         const narrow = pw < 170;     // short peak and time labels
