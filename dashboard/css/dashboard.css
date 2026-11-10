@@ -277,6 +277,11 @@ details.definition p { margin: .25rem 0 .5rem; color: var(--ink-secondary); }
 .svg-chart { height: auto; min-height: 10rem; }
 .svg-chart svg { display: block; }
 .chart-title { margin: .5rem 0 .25rem; font-weight: 600; }
+/* direction icon before a direction name (dirIcon in sections.js) */
+.dir-title { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .25em .5em; }
+.dir-name { display: inline-flex; align-items: center; gap: .4em; white-space: nowrap; }
+.dir-icon { flex: none; width: 1.2em; height: 1.2em; color: var(--arc-blue); }
+.dir-sep { color: var(--ink-secondary); font-weight: 400; }
 .chart-legend { display: flex; flex-wrap: wrap; gap: .25rem 1rem; margin: .25rem 0 .5rem; font-size: .9rem; }
 .chart-legend span { display: inline-flex; align-items: center; gap: .35rem; }
 .chart-legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }

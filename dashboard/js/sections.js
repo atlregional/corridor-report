@@ -5,6 +5,25 @@ const DAY_NAMES = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thurs
 const WEEKDAYS = Object.keys(DAY_NAMES);
 const PEAKS = [['am', 'AM peak', '6–10 AM'], ['pm', 'PM peak', '3–7 PM']];
 
+/* Direction icon (decorative; the name beside it is the text): a bold arrow in a filled circle, pointing
+   the compass direction, or a circular arrow for clockwise/counterclockwise (I-285). */
+const DIR_ROTATION = { Northbound: 0, Eastbound: 90, Southbound: 180, Westbound: 270 };
+function dirIcon(name) {
+    const svg = body => `<svg class="dir-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+        <circle cx="12" cy="12" r="12" fill="currentColor"/>
+        <g fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${body}</g></svg>`;
+    if (name in DIR_ROTATION) return svg(`<path d="M12 18V6M7 11l5-5 5 5" transform="rotate(${DIR_ROTATION[name]} 12 12)"/>`);
+    const loop = '<path d="M17.5 13.5A5.75 5.75 0 1 1 15.6 7.5"/><path d="M16.2 4.6l-.6 2.9 2.9.6"/>';
+    if (name === 'Clockwise') return svg(loop);
+    if (name === 'Counterclockwise') return svg(`<g transform="matrix(-1 0 0 1 24 0)">${loop}</g>`);
+    return '';
+}
+/* 'Westbound / Southbound' with an icon before each name */
+function dirTitle(names) {
+    return `<span class="dir-title">${[].concat(names).map(n => `<span class="dir-name">${dirIcon(n)}${esc(n)}</span>`)
+        .join('<span class="dir-sep">/</span>')}</span>`;
+}
+
 // Full reporting dates appear only in the two delay-total tiles; use years elsewhere.
 function yearLabel(period) {
     const text = String(period ?? '');
@@ -243,7 +262,7 @@ const SECTIONS = [
                 s.am ? `${fmt(s.am.minutes, 1)} (${s.am.time})` : '–',
                 s.pm ? `${fmt(s.pm.minutes, 1)} (${s.pm.time})` : '–'])));
             const panels = t.directions.map((dir, n) => `<div>
-                <p class="chart-title">${esc(dir.name)}</p>
+                <p class="chart-title">${dirTitle(dir.name)}</p>
                 ${chartCanvas(`chart-tod-${n}`, `Line chart of average weekday travel time by time of day, ${dir.name}, one line per year (${t.periods.map(yearLabel).join(', ')}). Key values are in the tiles above and the data table below.`)}
             </div>`).join('');
             return card(this.id, this.title, span(t.periods), `
@@ -290,7 +309,7 @@ const SECTIONS = [
             const blocks = PEAKS.filter(([k]) => p.directions.some(dir => dir[k])).map(([k, label, hours]) => `
                 <h4>${label} (${hours})</h4>
                 <div class="grid-2">${p.directions.map((dir, n) => dir[k] ? `<div>
-                    <p class="chart-title">${esc(dir.name)}</p>
+                    <p class="chart-title">${dirTitle(dir.name)}</p>
                     ${chartSvg(`chart-peak-${k}-${n}`, `Candlestick chart of ${label} travel time by weekday, ${dir.name}, one candle per year. Average values are in the data table below.`)}
                 </div>` : '').join('')}</div>`).join('');
             // key: the box, the two whisker ends (5th and 95th percentile), the average dot
@@ -357,7 +376,7 @@ const SECTIONS = [
                     : w.v < 1.3 ? `In ${w.period}, traffic flowed close to free-flow speed all day, with a travel time index under 1.3.`
                     : `In ${w.period}, the slowest spot was toward ${b(w.name)} around ${b(timeOfSlot(w.k))}, with a travel time index of ${fmt(w.v, 1)}.`;
                 const years = side.periods.map(yearLabel).join(', ');
-                return `<h4 class="scan-heading">${esc(dirs)}</h4>
+                return `<h4 class="scan-heading">${dirTitle(side.directions)}</h4>
                     <p class="summary">${sentence(t => `<strong>${esc(t)}</strong>`)}</p>
                     <div class="scan-chart" id="chart-scan-${k}" role="img"
                         aria-label="${esc(`Heat map of the travel time index ${dirs.toLowerCase()} on ${d.name} by time of day and location, one panel per year (${years}). ${sentence(t => t)}`)}"></div>`;
