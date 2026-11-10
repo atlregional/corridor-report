@@ -226,15 +226,21 @@ figcaption { font-size: .95rem; color: var(--ink-secondary); margin-top: .4rem; 
 .wide-image img { min-width: 640px; }
 @media (max-width: 700px) { .wide-image img { min-width: 0; } }
 
-/* congestion scan: year label over each panel; the image's cut-off title rows are hidden */
+/* congestion scan: direction over each side and year over each panel; the image's cut-off title rows are hidden */
 .scan { min-width: 640px; }
 .scan-crop { overflow: hidden; }
 .scan-crop img { display: block; width: 100%; min-width: 0; }
-.scan-years { position: relative; height: 1.5rem; }
-.scan-years span { position: absolute; top: 0; text-align: center; font-weight: 600; font-size: .9rem; }
+.scan-labels { position: relative; height: 1.5rem; }
+.scan-labels > span { position: absolute; top: 0; text-align: center; font-weight: 600; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scan-dirs { border-bottom: 1px solid var(--hairline); margin-bottom: .25rem; }
+.scan-dirs > span { font-size: 1rem; }
+.scan-dirs .short { display: none; }
 @media (max-width: 700px) {
     .scan { min-width: 0; }
-    .scan-years span { font-size: .75rem; }
+    .scan-labels > span { font-size: .75rem; }
+    .scan-dirs > span { font-size: .8rem; }
+    .scan-dirs .long { display: none; }
+    .scan-dirs .short { display: inline; }
 }
 
 .unavailable {
