@@ -315,8 +315,9 @@ function radarChart(id, { labels, series, max, digits = 1 }) {
 }
 
 /* Horizontal floating bars: one [low, high] range per category and series. tip(k, i) gives
-   the tooltip line for series k, category i. */
-function rangeChart(id, { labels, series, xTitle, min, max, tip, group = null }) {
+   the tooltip line for series k, category i. A label can be an array (one line each); titles[i],
+   if given, replaces it as the tooltip title. */
+function rangeChart(id, { labels, titles = null, series, xTitle, min, max, tip, group = null }) {
     charts[id]?.destroy();
     const canvas = document.getElementById(id);
     if (!canvas) return;
@@ -344,7 +345,10 @@ function rangeChart(id, { labels, series, xTitle, min, max, tip, group = null })
             },
             plugins: {
                 legend: { display: false },
-                tooltip: { ...tooltipStyle(), callbacks: { label: c => ` ${tip(c.datasetIndex, c.dataIndex)}` } },
+                tooltip: { ...tooltipStyle(), callbacks: {
+                    ...(titles ? { title: items => titles[items[0].dataIndex] } : {}),
+                    label: c => ` ${tip(c.datasetIndex, c.dataIndex)}`,
+                } },
             },
         },
     });

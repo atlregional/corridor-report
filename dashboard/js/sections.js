@@ -8,6 +8,7 @@ const PEAKS = [['am', 'AM peak', '6–10 AM'], ['pm', 'PM peak', '3–7 PM']];
 /* Direction icon (decorative; the name beside it is the text): a bold arrow in a filled circle, pointing
    the compass direction, or a circular arrow for clockwise/counterclockwise (I-285). */
 const DIR_ROTATION = { Northbound: 0, Eastbound: 90, Southbound: 180, Westbound: 270 };
+const DIR_SHORT = { Northbound: 'NB', Southbound: 'SB', Eastbound: 'EB', Westbound: 'WB', Clockwise: 'CW', Counterclockwise: 'CCW' };
 function dirIcon(name) {
     const svg = body => `<svg class="dir-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
         <circle cx="12" cy="12" r="12" fill="currentColor"/>
@@ -223,16 +224,18 @@ const SECTIONS = [
         after(d) {
             const rel = d.reliability;
             if (!rel) return;
-            const labels = [];
+            const labels = [];    // two lines on the axis: 'NB' / 'AM peak'
+            const titles = [];    // full names in the tooltip
             const cells = [];     // [category][period] -> value object
             rel.directions.forEach(dir => PEAKS.forEach(([key, label]) => {
-                labels.push(`${dir.name}, ${label}`);
+                labels.push([DIR_SHORT[dir.name] ?? dir.name, label]);
+                titles.push(`${dir.name}, ${label}`);
                 cells.push(dir[key]);
             }));
             const all = cells.flat().filter(v => v && v.p25 != null).flatMap(v => [v.p25, v.p75]);
             const [min, max] = niceRange(all, 0.1);
             rangeChart('chart-reliability', {
-                labels, min, max, xTitle: 'Speed (mph)', group: 'rel',
+                labels, titles, min, max, xTitle: 'Speed (mph)', group: 'rel',
                 series: rel.periods.map((p, k) => ({ label: yearLabel(p), data: cells.map(c => c[k] && c[k].p25 != null ? [c[k].p25, c[k].p75] : null) })),
                 tip: (k, i) => {
                     const v = cells[i][k];
