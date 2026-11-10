@@ -43,10 +43,25 @@ function stat(label, value, note = '') {
     return `<div class="stat"><span class="stat-label">${label}</span><span class="stat-value">${value}</span>${note ? `<span class="stat-note">${note}</span>` : ''}</div>`;
 }
 
-function imageFigure(src, alt, caption) {
+/* Congestion scan PNG (always exported at 1902 px wide): three panels per direction, mirrored around
+   the road diagram, newest year outermost. Hides the cut-off title rows at the top and labels each
+   panel with its year. Panel edges in image pixels. */
+const SCAN = { width: 1902, crop: 81, panels: [[0, 268], [273, 541], [546, 813], [1089, 1356], [1361, 1628], [1633, 1901]] };
+
+function scanFigure(src, periods, alt, caption) {
     const url = REPORT_BASE + src;
+    const pct = px => `${(px / SCAN.width * 100).toFixed(3)}%`;
+    const years = (periods ?? []).map(yearLabel);
+    const order = years.length === 3 ? [...years].reverse().concat(years) : [];
+    const labels = order.length
+        ? `<div class="scan-years" aria-hidden="true">${SCAN.panels.map(([a, b], k) =>
+            `<span style="left:${pct(a)};width:${pct(b - a)}">${esc(order[k])}</span>`).join('')}</div>`
+        : '';
+    const altText = order.length ? `${alt} Panels from left to right: ${order.join(', ')}.` : alt;
     return `<figure>
-        <img src="${esc(url)}" alt="${esc(alt)}" loading="lazy">
+        <div class="scan">${labels}
+            <div class="scan-crop"><img src="${esc(url)}" alt="${esc(altText)}" loading="lazy" style="margin-top:-${pct(SCAN.crop)}"></div>
+        </div>
         <figcaption>${caption} <a href="${esc(url)}" target="_blank" rel="noopener">Open full-size image<span class="visually-hidden"> (opens in a new tab)</span></a></figcaption>
     </figure>`;
 }
@@ -338,7 +353,7 @@ const SECTIONS = [
         id: 'congestion', title: 'Congestion by location and time of day',
         render(d) {
             const body = d.congestion_scan
-                ? `<div class="wide-image">${imageFigure(d.congestion_scan.image,
+                ? `<div class="wide-image">${scanFigure(d.congestion_scan.image, d.congestion_scan.periods,
                     `Heat map of the travel time index along ${d.name} by time of day, one panel per direction and year. Green means near free-flow; yellow to red means slower; purple means more than 2.5 times the free-flow travel time.`,
                     'Each panel runs along the corridor (vertical) and through the day (horizontal). Colors show the travel time index: 1.0 is free flow; 2.0 means trips take twice as long. For numbers by time of day, see the travel time section above.')}</div>`
                 : `<p class="unavailable">A congestion scan is not available for this corridor.</p>`;
