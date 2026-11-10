@@ -327,8 +327,9 @@ const SECTIONS = [
     /* ---------- congestion scan ---------- */
     {
         id: 'congestion', title: 'Congestion by location and time of day',
-        // left side runs down the road diagram (westbound/southbound), right side up
-        sides: [['left', '↓', true], ['right', '↑', false]],
+        // left side runs down the chart (westbound/southbound/clockwise), right side up
+        sides: [['left', true], ['right', false]],
+        arrows: { Northbound: '↑', Southbound: '↓', Eastbound: '→', Westbound: '←', Clockwise: '↻', Counterclockwise: '↺' },
         shown(d) {
             return d.congestion_scan ? this.sides.filter(([k]) => d.congestion_scan[k]?.segments.length) : [];
         },
@@ -349,15 +350,17 @@ const SECTIONS = [
                 return card(this.id, this.title, '', `<p class="unavailable">A congestion scan is not available for this corridor.</p>`);
             }
             const s = d.congestion_scan;
-            const blocks = sides.map(([k, arrow]) => {
+            const blocks = sides.map(([k]) => {
                 const side = s[k], dirs = side.directions.join(' / ');
+                const heading = side.directions.map(name => this.arrows[name]
+                    ? `<span class="dir-arrow" aria-hidden="true">${this.arrows[name]}</span> ${esc(name)}` : esc(name)).join(' / ');
                 const w = this.worst(side);
                 // b() bolds in the visible sentence; the chart's aria-label gets the plain text
                 const sentence = b => !w ? 'No data.'
                     : w.v < 1.3 ? `In ${w.period}, traffic flowed close to free-flow speed all day, with a travel time index under 1.3.`
                     : `In ${w.period}, the slowest spot was toward ${b(w.name)} around ${b(timeOfSlot(w.k))}, with a travel time index of ${fmt(w.v, 1)}.`;
                 const years = side.periods.map(yearLabel).join(', ');
-                return `<h4 class="scan-heading"><span aria-hidden="true">${arrow}</span> ${esc(dirs)}</h4>
+                return `<h4 class="scan-heading">${heading}</h4>
                     <p class="summary">${sentence(t => `<strong>${esc(t)}</strong>`)}</p>
                     <div class="scan-chart" id="chart-scan-${k}" role="img"
                         aria-label="${esc(`Heat map of the travel time index ${dirs.toLowerCase()} on ${d.name} by time of day and location, one panel per year (${years}). ${sentence(t => t)}`)}"></div>`;
@@ -367,11 +370,11 @@ const SECTIONS = [
                     <li><i style="background:${TTI_NO_DATA}" aria-hidden="true"></i>no data</li>
                     <li><i class="peak-key" aria-hidden="true"></i>peak periods (${PEAKS.map(p => p[2]).join(', ')})</li></ul>`;
             return card(this.id, this.title, span(s.periods), blocks + legend +
-                `<p class="chart-note">Each panel runs through the day (across) and along the corridor (down); the arrow shows the direction of travel. Darker means slower. Hover or tap the chart to read the values.</p>` +
+                `<p class="chart-note">Each panel runs through the day (across) and along the corridor (down). In the first chart traffic moves down the panel; in the second, up. Darker means slower. Hover or tap the chart to read the values.</p>` +
                 definition('What is the travel time index?', 'Travel time index = travel time in traffic ÷ travel time at free-flow speed. A value of 1.3 means a trip takes 30% longer than it would with no congestion.'));
         },
         after(d) {
-            this.shown(d).forEach(([k, , down]) => {
+            this.shown(d).forEach(([k, down]) => {
                 const side = d.congestion_scan[k];
                 scanChart(`chart-scan-${k}`, { segments: side.segments, periods: side.periods.map(yearLabel), tti: side.tti, down, title: side.directions.join(' / '),
                     peaks: [[24, 40], [60, 76]] });   // 15-minute slots of PEAKS: 6–10 AM, 3–7 PM
