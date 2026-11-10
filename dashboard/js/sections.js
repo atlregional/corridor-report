@@ -46,36 +46,61 @@ function stat(label, value, note = '') {
 /* Congestion scan PNG (always exported at 1902 px wide): three panels per direction, mirrored around
    the road diagram, newest year outermost. Hides the cut-off title rows at the top and labels each
    side with its direction (left panels run down the road diagram, right panels up) and each panel
-   with its year. Panel and side edges in image pixels. */
+   with its year. On phones the image is split into one view per direction (each with the road
+   diagram), stacked, without the legend at the bottom; an HTML legend replaces it.
+   Edges in image pixels; legend colors sampled from the image. */
 const SCAN = {
-    width: 1902, crop: 81,
+    width: 1902, height: 834, top: 81, plotBottom: 762,
     panels: [[0, 268], [273, 541], [546, 813], [1089, 1356], [1361, 1628], [1633, 1901]],
     sides: { left: [0, 813, '↓'], right: [1089, 1901, '↑'] },
+    halves: { left: [0, 1087], right: [816, 1902] },
+    legend: [['under 1.1', '#009245'], ['1.1–1.3', '#8cc63f'], ['1.3–1.6', '#fcee21'], ['1.6–1.8', '#f7931e'],
+             ['1.8–2', '#ed1c24'], ['2–2.5', '#c1272d'], ['2.5 and over', '#93278f']],
 };
 
 function scanFigure(src, periods, directions, alt, caption) {
     const url = REPORT_BASE + src;
-    const pct = px => `${(px / SCAN.width * 100).toFixed(3)}%`;
-    const place = (a, b) => `left:${pct(a)};width:${pct(b - a)}`;
-    // 'Westbound / Southbound' when the corridor turns (top part first)
-    const dirText = list => list.join(' / ');
     const years = (periods ?? []).map(yearLabel);
     const order = years.length === 3 ? [...years].reverse().concat(years) : [];
-    const sides = Object.entries(SCAN.sides).filter(([side]) => directions?.[side]?.length);
-    const dirRow = sides.length
-        ? `<div class="scan-labels scan-dirs" aria-hidden="true">${sides.map(([side, [a, b, arrow]]) =>
-            `<span style="${place(a, b)}">${arrow} <span class="long">${esc(dirText(directions[side]))}</span><span class="short">${esc(dirText(directions[side].map(d => d[0] + 'B')))}</span></span>`).join('')}</div>`
-        : '';
-    const yearRow = order.length
-        ? `<div class="scan-labels" aria-hidden="true">${SCAN.panels.map(([a, b], k) =>
-            `<span style="${place(a, b)}">${esc(order[k])}</span>`).join('')}</div>`
-        : '';
-    let altText = alt;
-    if (sides.length) altText += ' ' + sides.map(([side]) => `${side === 'left' ? 'Left' : 'Right'} panels: ${directions[side].join(' and ').toLowerCase()}.`).join(' ');
-    if (order.length) altText += ` Panels from left to right: ${order.join(', ')}.`;
+    const sides = Object.keys(SCAN.sides).filter(side => directions?.[side]?.length);
+    // 'Westbound / Southbound' when the corridor turns (top part first)
+    const dirText = side => directions[side].join(' / ');
+
+    // one cropped view of the image, x0-x1 by top-y1, with labels for the sides and panels inside it
+    const view = (x0, x1, y1, altText) => {
+        const w = x1 - x0;
+        const pct = px => `${(px / w * 100).toFixed(3)}%`;
+        const place = (a, b) => `left:${pct(a - x0)};width:${pct(b - a)}`;
+        const inside = ([a, b]) => a >= x0 && b <= x1;
+        const dirs = sides.filter(side => inside(SCAN.sides[side]));
+        const panels = SCAN.panels.map((p, k) => [p, order[k]]).filter(([p, year]) => year && inside(p));
+        const dirRow = dirs.length ? `<div class="scan-labels scan-dirs" aria-hidden="true">${dirs.map(side => {
+            const [a, b, arrow] = SCAN.sides[side];
+            return `<span style="${place(a, b)}">${arrow} ${esc(dirText(side))}</span>`;
+        }).join('')}</div>` : '';
+        const yearRow = panels.length ? `<div class="scan-labels" aria-hidden="true">${panels.map(([[a, b], year]) =>
+            `<span style="${place(a, b)}">${esc(year)}</span>`).join('')}</div>` : '';
+        const crop = `aspect-ratio:${w}/${y1 - SCAN.top}`;
+        const img = `width:${pct(SCAN.width)};margin-left:-${pct(x0)};margin-top:-${pct(SCAN.top)}`;
+        return `<div class="scan-view">${dirRow}${yearRow}
+            <div class="scan-crop" style="${crop}"><img src="${esc(url)}" alt="${esc(altText)}" loading="lazy" style="${img}"></div>
+        </div>`;
+    };
+
+    const sideText = side => `${side === 'left' ? 'Left' : 'Right'} panels: ${directions[side].join(' and ').toLowerCase()}.`;
+    let fullAlt = alt;
+    if (sides.length) fullAlt += ' ' + sides.map(sideText).join(' ');
+    if (order.length) fullAlt += ` Panels from left to right: ${order.join(', ')}.`;
+    const halfAlt = (side, k) => k === 0 ? fullAlt
+        : `Congestion scan continued${directions?.[side]?.length ? `: ${directions[side].join(' and ').toLowerCase()} panels` : ''}.`;
+    const legend = `<ul class="scan-legend">${SCAN.legend.map(([label, color]) =>
+        `<li><i style="background:${color}" aria-hidden="true"></i>${label}</li>`).join('')}</ul>`;
+
     return `<figure>
-        <div class="scan">${dirRow}${yearRow}
-            <div class="scan-crop"><img src="${esc(url)}" alt="${esc(altText)}" loading="lazy" style="margin-top:-${pct(SCAN.crop)}"></div>
+        <div class="scan scan-wide">${view(0, SCAN.width, SCAN.height, fullAlt)}</div>
+        <div class="scan scan-split">${Object.entries(SCAN.halves).map(([side, [a, b]], k) =>
+            view(a, b, SCAN.plotBottom, halfAlt(side, k))).join('')}
+            <p class="scan-legend-title">Travel time index</p>${legend}
         </div>
         <figcaption>${caption} <a href="${esc(url)}" target="_blank" rel="noopener">Open full-size image<span class="visually-hidden"> (opens in a new tab)</span></a></figcaption>
     </figure>`;
@@ -417,7 +442,8 @@ const SECTIONS = [
                 <button type="button" class="cond-seg ${k}" style="flex-grow:${pct(k)}" aria-pressed="false" data-class="${k}"
                     data-tip="${esc(`<strong>${label}</strong> (${range} in/mi)<span>${fmt(r.miles[k], 1)} miles, ${fmt(pct(k))}% of measured road</span><span>Select to highlight on the map</span>`)}">
                     <span class="cond-name">${label}</span>
-                    <span class="cond-value">${fmt(r.miles[k], 1)} mi · ${fmt(pct(k))}%</span>
+                    <span class="cond-value">${fmt(r.miles[k], 1)} mi</span>
+                    <span class="cond-value">${fmt(pct(k))}%</span>
                     <span class="visually-hidden">(${range} inches per mile). Highlight on the map.</span>
                 </button>`).join('');
             return card(this.id, this.title, r.period, `

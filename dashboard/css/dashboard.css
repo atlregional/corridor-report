@@ -226,21 +226,26 @@ figcaption { font-size: .95rem; color: var(--ink-secondary); margin-top: .4rem; 
 .wide-image img { min-width: 640px; }
 @media (max-width: 700px) { .wide-image img { min-width: 0; } }
 
-/* congestion scan: direction over each side and year over each panel; the image's cut-off title rows are hidden */
-.scan { min-width: 640px; }
+/* congestion scan: direction over each side and year over each panel; the image's cut-off title rows are
+   hidden. Phones get .scan-split (one view per direction, stacked, HTML legend) instead of .scan-wide. */
+.scan-wide { min-width: 640px; }
+.scan-split { display: none; }
 .scan-crop { overflow: hidden; }
-.scan-crop img { display: block; width: 100%; min-width: 0; }
+.scan-crop img { display: block; max-width: none; min-width: 0; }
 .scan-labels { position: relative; height: 1.5rem; }
 .scan-labels > span { position: absolute; top: 0; text-align: center; font-weight: 600; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .scan-dirs { border-bottom: 1px solid var(--hairline); margin-bottom: .25rem; }
 .scan-dirs > span { font-size: 1rem; }
-.scan-dirs .short { display: none; }
+.scan-legend-title { margin: .75rem 0 .25rem; font-weight: 600; font-size: .85rem; }
+.scan-legend { display: flex; flex-wrap: wrap; gap: .25rem .75rem; margin: 0; padding: 0; list-style: none; font-size: .8rem; }
+.scan-legend li { display: flex; align-items: center; gap: .3rem; }
+.scan-legend i { width: .9rem; height: .9rem; border-radius: 2px; box-shadow: inset 0 0 0 1px rgb(0 0 0 / .25); }
 @media (max-width: 700px) {
-    .scan { min-width: 0; }
-    .scan-labels > span { font-size: .75rem; }
-    .scan-dirs > span { font-size: .8rem; }
-    .scan-dirs .long { display: none; }
-    .scan-dirs .short { display: inline; }
+    .scan-wide { display: none; }
+    .scan-split { display: block; }
+    .scan-view + .scan-view { margin-top: 1rem; }
+    .scan-labels > span { font-size: .8rem; }
+    .scan-dirs > span { font-size: .85rem; }
 }
 
 .unavailable {
@@ -373,7 +378,7 @@ details.definition p { margin: .25rem 0 .5rem; color: var(--ink-secondary); }
 .cond-seg.poor { --seg: var(--poor); }
 .cond-name, .cond-value { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cond-name { font-weight: 700; padding-top: .35rem; }
-.cond-value { font-size: .9rem; color: var(--ink-secondary); font-variant-numeric: tabular-nums; white-space: normal; }
+.cond-value { font-size: .9rem; color: var(--ink-secondary); font-variant-numeric: tabular-nums; }
 .condition-bar:has([aria-pressed="true"]) .cond-seg:not([aria-pressed="true"])::before { opacity: .3; }
 .cond-seg[aria-pressed="true"]::before { box-shadow: inset 0 0 0 3px var(--ink), 0 4px 10px rgb(0 0 0 / .25); }
 .cond-seg[aria-pressed="true"] .cond-name::after { content: " ✓"; }
