@@ -116,7 +116,7 @@ const Tooltip = {
 };
 document.addEventListener('keydown', e => { if (e.key === 'Escape') Tooltip.hide(); });
 document.addEventListener('pointerdown', e => {
-    if (e.pointerType === 'touch' && !e.target.closest('.svg-chart, .condition-bar, .scan-chart, .label-tips')) Tooltip.hide();
+    if (e.pointerType === 'touch' && !e.target.closest('.svg-chart, .condition-pie, .scan-chart, .label-tips')) Tooltip.hide();
 });
 
 /* show a tooltip for elements matching selector inside container; html(el) builds the content */
@@ -476,7 +476,12 @@ function timeOfSlot(k) {
     return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
 }
 
-function scanChart(id, { segments, periods, tti, down, title, peaks = [] }) {   // peaks: [[startSlot, endSlot], ...]
+// phones: the scan shows only the latest year; earlier years go in a collapsed section (see .scan-earlier)
+const PHONE = window.matchMedia('(max-width: 700px)');
+
+/* peaks: [[startSlot, endSlot], ...]. years: 'all'; 'responsive' (latest only on phones, all otherwise);
+   or 'earlier' (all but the latest). */
+function scanChart(id, { segments, periods, tti, down, title, peaks = [], years = 'all' }) {
     const el = document.getElementById(id);
     if (!el) return;
     const canvas = document.createElement('canvas');
@@ -491,12 +496,16 @@ function scanChart(id, { segments, periods, tti, down, title, peaks = [] }) {   
     const draw = () => {
         const W = Math.round(el.clientWidth);
         if (!W) return;
-        const narrow = W < 560;
+        const last = periods.length - 1;
+        const idx = periods.map((_, k) => k).filter(k => years === 'earlier' ? k < last
+            : years === 'responsive' && PHONE.matches ? k === last : true);
+        const compact = W < 560;
         // top margin: year, then the peak labels
-        const M = { top: peaks.length ? 36 : 22, right: 4, bottom: 22, left: narrow ? 92 : 150 }, gap = narrow ? 6 : 10;
+        const M = { top: peaks.length ? 36 : 22, right: 4, bottom: 22, left: compact ? 92 : 150 }, gap = compact ? 6 : 10;
         const ph = Math.round(Math.min(Math.max(miles * 28, 170), 440));
         const H = M.top + ph + M.bottom;
-        const pw = (W - M.left - M.right - gap * (periods.length - 1)) / periods.length;
+        const pw = (W - M.left - M.right - gap * (idx.length - 1)) / idx.length;
+        const narrow = pw < 170;     // short peak and time labels
         const dpr = window.devicePixelRatio || 1;
         canvas.width = W * dpr; canvas.height = H * dpr;
         canvas.style.width = `${W}px`; canvas.style.height = `${H}px`;
@@ -506,9 +515,9 @@ function scanChart(id, { segments, periods, tti, down, title, peaks = [] }) {   
         const y = mi => M.top + mi / miles * ph;
         const font = (size, weight = 400) => `${weight} ${size}px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
 
-        periods.forEach((period, p) => {
-            const x0 = M.left + p * (pw + gap), cw = pw / 96;
-            tti[p].forEach((row, r) => {
+        idx.forEach((pi, p) => {
+            const x0 = M.left + p * (pw + gap), cw = pw / 96, period = periods[pi];
+            tti[pi].forEach((row, r) => {
                 const y0 = y(edges[r]), y1 = y(edges[r + 1]);
                 row.forEach((v, k) => {
                     ctx.fillStyle = ttiColor(v);
@@ -526,7 +535,7 @@ function scanChart(id, { segments, periods, tti, down, title, peaks = [] }) {   
             ctx.setLineDash([]);
             ctx.strokeStyle = AXIS; ctx.lineWidth = 1;
             ctx.strokeRect(x0 + 0.5, M.top + 0.5, pw - 1, ph - 1);
-            ctx.fillStyle = INK; ctx.font = font(narrow ? 12 : 13, 600); ctx.textAlign = 'center';
+            ctx.fillStyle = INK; ctx.font = font(compact ? 12 : 13, 600); ctx.textAlign = 'center';
             ctx.fillText(period, x0 + pw / 2, 14);
             // peak labels centered over each window ('AM'/'PM' when the window is narrow)
             ctx.fillStyle = INK_SECONDARY; ctx.font = font(narrow ? 9.5 : 11);
@@ -546,7 +555,7 @@ function scanChart(id, { segments, periods, tti, down, title, peaks = [] }) {   
         });
 
         // cross streets, skipping repeats and labels that would overlap the previous one
-        ctx.font = font(narrow ? 10.5 : 12); ctx.textAlign = 'right'; ctx.fillStyle = INK;
+        ctx.font = font(compact ? 10.5 : 12); ctx.textAlign = 'right'; ctx.fillStyle = INK;
         const fit = text => {
             const max = M.left - 10;
             if (ctx.measureText(text).width <= max) return text;
@@ -567,7 +576,7 @@ function scanChart(id, { segments, periods, tti, down, title, peaks = [] }) {   
             labels.push({ name, y: baseline - 4 });
             lastY = at; lastName = name;
         });
-        layout = { M, gap, pw, ph, y, labels };
+        layout = { M, gap, pw, ph, y, labels, idx };
     };
 
     const ro = new ResizeObserver(draw);
@@ -579,15 +588,15 @@ function scanChart(id, { segments, periods, tti, down, title, peaks = [] }) {   
         if (!layout) return null;
         const r0 = canvas.getBoundingClientRect();
         const x = e.clientX - r0.left, yy = e.clientY - r0.top;
-        const { M, gap, pw, ph } = layout;
+        const { M, gap, pw, ph, idx } = layout;
         if (yy < M.top || yy >= M.top + ph || x < M.left) return null;
         const p = Math.floor((x - M.left) / (pw + gap));
         const xin = x - M.left - p * (pw + gap);
-        if (p < 0 || p >= periods.length || xin > pw) return null;
+        if (p < 0 || p >= idx.length || xin > pw) return null;
         const mi = (yy - M.top) / ph * miles;
         const r = Math.min(edges.findIndex(v => v > mi) - 1, segments.length - 1);
         const k = Math.min(Math.floor(xin / pw * 96), 95);
-        return r < 0 ? null : { p, r, k };
+        return r < 0 ? null : { p: idx[p], r, k };
     };
     // the cross-street label under the pointer (labels can be cut short on narrow screens)
     const labelAt = e => {

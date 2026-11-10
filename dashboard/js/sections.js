@@ -20,6 +20,20 @@ function dirIcon(name) {
     if (name === 'Counterclockwise') return svg(`<g transform="matrix(-1 0 0 1 24 0)">${loop}</g>`);
     return '';
 }
+/* SVG path of a donut slice from p0% to p1% of the circle, clockwise from the top (a full ring at 100%) */
+function donutPath(p0, p1, R = 60, r = 36, c = 64) {
+    if (p1 - p0 >= 99.999) {
+        return `M${c} ${c - R}A${R} ${R} 0 1 1 ${c} ${c + R}A${R} ${R} 0 1 1 ${c} ${c - R}Z`
+            + `M${c} ${c - r}A${r} ${r} 0 1 0 ${c} ${c + r}A${r} ${r} 0 1 0 ${c} ${c - r}Z`;
+    }
+    const pt = (p, rad) => {
+        const t = p / 100 * 2 * Math.PI - Math.PI / 2;
+        return `${(c + rad * Math.cos(t)).toFixed(2)} ${(c + rad * Math.sin(t)).toFixed(2)}`;
+    };
+    const large = p1 - p0 > 50 ? 1 : 0;
+    return `M${pt(p0, R)}A${R} ${R} 0 ${large} 1 ${pt(p1, R)}L${pt(p1, r)}A${r} ${r} 0 ${large} 0 ${pt(p0, r)}Z`;
+}
+
 /* 'Westbound / Southbound' with an icon after each name */
 function dirTitle(names) {
     return `<span class="dir-title">${[].concat(names).map(n => `<span class="dir-name">${esc(n)}${dirIcon(n)}</span>`)
@@ -379,11 +393,14 @@ const SECTIONS = [
                 const sentence = b => !w ? 'No data.'
                     : w.v < 1.3 ? `In ${w.period}, traffic flowed close to free-flow speed all day, with a travel time index under 1.3.`
                     : `In ${w.period}, the slowest spot was toward ${b(w.name)} around ${b(timeOfSlot(w.k))}, with a travel time index of ${fmt(w.v, 1)}.`;
-                const years = side.periods.map(yearLabel).join(', ');
+                const label = years => `Heat map of the travel time index ${dirs.toLowerCase()} on ${d.name} by time of day and location, one panel per year (${years.join(', ')}).`;
+                const years = side.periods.map(yearLabel), earlier = years.slice(0, -1);
+                // phones show the latest year; the earlier years open below (.scan-earlier, phones only)
                 return `<h4 class="scan-heading">${dirTitle(side.directions)}</h4>
                     <p class="summary">${sentence(t => `<strong>${esc(t)}</strong>`)}</p>
-                    <div class="scan-chart" id="chart-scan-${k}" role="img"
-                        aria-label="${esc(`Heat map of the travel time index ${dirs.toLowerCase()} on ${d.name} by time of day and location, one panel per year (${years}). ${sentence(t => t)}`)}"></div>`;
+                    <div class="scan-chart" id="chart-scan-${k}" role="img" aria-label="${esc(`${label(years)} ${sentence(t => t)}`)}"></div>
+                    ${earlier.length ? `<details class="scan-earlier"><summary>Earlier years (${esc(earlier.join(', '))})</summary>
+                        <div class="scan-chart" id="chart-scan-${k}-earlier" role="img" aria-label="${esc(label(earlier))}"></div></details>` : ''}`;
             }).join('');
             const legend = `<p class="scan-legend-title">Travel time index</p>
                 <ul class="scan-legend">${TTI_LABELS.map((label, k) => `<li><i style="background:${TTI_COLORS[k]}" aria-hidden="true"></i>${label}</li>`).join('')}
@@ -396,8 +413,10 @@ const SECTIONS = [
         after(d) {
             this.shown(d).forEach(([k, down]) => {
                 const side = d.congestion_scan[k];
-                scanChart(`chart-scan-${k}`, { segments: side.segments, periods: side.periods.map(yearLabel), tti: side.tti, down, title: side.directions.join(' / '),
-                    peaks: [[24, 40], [60, 76]] });   // 15-minute slots of PEAKS: 6–10 AM, 3–7 PM
+                const opts = { segments: side.segments, periods: side.periods.map(yearLabel), tti: side.tti, down, title: side.directions.join(' / '),
+                    peaks: [[24, 40], [60, 76]] };   // 15-minute slots of PEAKS: 6–10 AM, 3–7 PM
+                scanChart(`chart-scan-${k}`, { ...opts, years: 'responsive' });
+                scanChart(`chart-scan-${k}-earlier`, { ...opts, years: 'earlier' });
             });
         },
     },
@@ -436,24 +455,41 @@ const SECTIONS = [
             if (!r) return null;
             const total = r.miles.good + r.miles.fair + r.miles.poor;
             const pct = k => total ? r.miles[k] / total * 100 : 0;
+            // a small nonzero share reads '<1%' (and '<0.1' mi), not '0%'
+            const pctText = k => pct(k) > 0 && pct(k) < 0.5 ? '<1%' : `${fmt(pct(k))}%`;
+            const miText = k => r.miles[k] > 0 && r.miles[k] < 0.05 ? '<0.1' : fmt(r.miles[k], 1);
             const classes = [['good', 'Good', 'IRI below 95'], ['fair', 'Fair', 'IRI 95–170'], ['poor', 'Poor', 'IRI above 170']];
-            // each segment is a button: label and numbers stay visible (this replaces the miles table)
-            const bar = classes.filter(([k]) => r.miles[k] > 0).map(([k, label, range]) => `
-                <button type="button" class="cond-seg ${k}" style="flex-grow:${pct(k)}" aria-pressed="false" data-class="${k}"
-                    data-tip="${esc(`<strong>${label}</strong> (${range} in/mi)<span>${fmt(r.miles[k], 1)} miles, ${fmt(pct(k))}% of measured road</span><span>Select to highlight on the map</span>`)}">
-                    <span class="cond-name">${label}</span>
-                    <span class="cond-value">${fmt(r.miles[k], 1)} mi</span>
-                    <span class="cond-value">${fmt(pct(k))}%</span>
+            const shown = classes.filter(([k]) => r.miles[k] > 0);
+            const tip = (k, label, range) => esc(`<strong>${label}</strong> (${range} in/mi)<span>${miText(k)} miles, ${pctText(k)} of measured road</span><span>Select to highlight on the map</span>`);
+            // donut slices: one under 3% is drawn at 3% so it can be seen and tapped; the others shrink to make room
+            const MIN = 3;
+            const smallCount = shown.filter(([k]) => pct(k) < MIN).length;
+            const bigTotal = shown.filter(([k]) => pct(k) >= MIN).reduce((s, [k]) => s + pct(k), 0);
+            const share = k => pct(k) < MIN ? MIN : pct(k) / bigTotal * (100 - MIN * smallCount);
+            let at = 0;
+            const wedges = shown.map(([k, label, range]) => {
+                const path = donutPath(at, at += share(k));
+                return `<path class="cond-wedge ${k}" data-class="${k}" d="${path}" fill-rule="evenodd" data-tip="${tip(k, label, range)}"/>`;
+            }).join('');
+            // the buttons carry the labels and numbers (and keyboard access); the donut mirrors them
+            const items = shown.map(([k, label, range]) => `
+                <button type="button" class="cond-item ${k}" aria-pressed="false" data-class="${k}" data-tip="${tip(k, label, range)}">
+                    <i aria-hidden="true"></i><span class="cond-name">${label}</span>
+                    <span class="cond-value">${esc(miText(k))} mi · ${esc(pctText(k))}</span>
                     <span class="visually-hidden">(${range} inches per mile). Highlight on the map.</span>
                 </button>`).join('');
+            const pie = `<svg class="cond-donut" viewBox="0 0 128 128" width="128" height="128" aria-hidden="true" focusable="false">${wedges}
+                    <text x="64" y="62" text-anchor="middle" class="cond-total">${fmt(total, 1)}</text>
+                    <text x="64" y="78" text-anchor="middle" class="cond-total-unit">miles</text></svg>
+                <div class="cond-items" role="group" aria-label="Miles by condition. Select a condition to highlight it on the map.">${items}</div>`;
             return card(this.id, this.title, r.period, `
                 ${r.snapshot ? `<p class="period-note">Snapshot: ${esc(new Date(`${r.snapshot}T00:00`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }))}.</p>` : ''}
                 <p class="summary">Average roughness is <strong>${fmt(r.iri_mean)} inches per mile</strong>
                     (<span class="badge ${r.class}">${esc(r.class_label)}</span>). Of the ${fmt(total, 1)} miles measured (both directions combined),
-                    ${fmt(pct('good'))}% are in good condition, ${fmt(pct('fair'))}% fair, and ${fmt(pct('poor'))}% poor.</p>
+                    ${esc(pctText('good'))} are in good condition, ${esc(pctText('fair'))} fair, and ${esc(pctText('poor'))} poor.</p>
                 <h4>Miles by condition</h4>
                 <p class="period-note">Select a condition to highlight it on the map; select it again to show all.</p>
-                <div class="condition-bar" role="group" aria-label="Miles by condition. Select a condition to highlight it on the map.">${bar}</div>
+                <div class="condition-pie">${pie}</div>
                 <div id="road-map" class="map road-map" role="region" aria-label="Map of ${esc(d.name)} colored by road surface condition, with detected potholes. The condition buttons above summarize the same information."></div>
                 <div class="map-legend" aria-hidden="true">
                     <span><i style="background:var(--good)"></i>Good</span>
@@ -477,14 +513,19 @@ const SECTIONS = [
         after(d) {
             if (!d.road) return;
             App.drawRoadMap(d);
-            const bar = document.querySelector('#sec-road .condition-bar');
-            bindTooltip(bar, '.cond-seg', el => el.dataset.tip);
-            bar.addEventListener('click', e => {
-                const btn = e.target.closest('.cond-seg');
-                if (!btn) return;
+            const pie = document.querySelector('#sec-road .condition-pie');
+            bindTooltip(pie, '[data-tip]', el => el.dataset.tip);
+            // a slice or a button toggles its class; the buttons hold the state, the slices follow
+            pie.addEventListener('click', e => {
+                const hit = e.target.closest('[data-class]');
+                if (!hit) return;
+                const cls = hit.dataset.class;
+                const btn = pie.querySelector(`.cond-item[data-class="${cls}"]`);
                 const on = btn.getAttribute('aria-pressed') !== 'true';
-                bar.querySelectorAll('.cond-seg').forEach(b => b.setAttribute('aria-pressed', String(b === btn && on)));
-                App.highlightRoad(on ? btn.dataset.class : null);
+                pie.querySelectorAll('.cond-item').forEach(b => b.setAttribute('aria-pressed', String(b === btn && on)));
+                pie.querySelectorAll('.cond-wedge').forEach(w => w.classList.toggle('active', on && w.dataset.class === cls));
+                pie.classList.toggle('has-active', on);
+                App.highlightRoad(on ? cls : null);
             });
             document.getElementById('show-potholes')?.addEventListener('change', e => App.showPotholes(e.target.checked));
         },
