@@ -329,7 +329,6 @@ const SECTIONS = [
         id: 'congestion', title: 'Congestion by location and time of day',
         // left side runs down the chart (westbound/southbound/clockwise), right side up
         sides: [['left', true], ['right', false]],
-        arrows: { Northbound: '↑', Southbound: '↓', Eastbound: '→', Westbound: '←', Clockwise: '↻', Counterclockwise: '↺' },
         shown(d) {
             return d.congestion_scan ? this.sides.filter(([k]) => d.congestion_scan[k]?.segments.length) : [];
         },
@@ -352,15 +351,13 @@ const SECTIONS = [
             const s = d.congestion_scan;
             const blocks = sides.map(([k]) => {
                 const side = s[k], dirs = side.directions.join(' / ');
-                const heading = side.directions.map(name => this.arrows[name]
-                    ? `<span class="dir-arrow" aria-hidden="true">${this.arrows[name]}</span> ${esc(name)}` : esc(name)).join(' / ');
                 const w = this.worst(side);
                 // b() bolds in the visible sentence; the chart's aria-label gets the plain text
                 const sentence = b => !w ? 'No data.'
                     : w.v < 1.3 ? `In ${w.period}, traffic flowed close to free-flow speed all day, with a travel time index under 1.3.`
                     : `In ${w.period}, the slowest spot was toward ${b(w.name)} around ${b(timeOfSlot(w.k))}, with a travel time index of ${fmt(w.v, 1)}.`;
                 const years = side.periods.map(yearLabel).join(', ');
-                return `<h4 class="scan-heading">${heading}</h4>
+                return `<h4 class="scan-heading">${esc(dirs)}</h4>
                     <p class="summary">${sentence(t => `<strong>${esc(t)}</strong>`)}</p>
                     <div class="scan-chart" id="chart-scan-${k}" role="img"
                         aria-label="${esc(`Heat map of the travel time index ${dirs.toLowerCase()} on ${d.name} by time of day and location, one panel per year (${years}). ${sentence(t => t)}`)}"></div>`;
