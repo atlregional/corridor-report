@@ -13,14 +13,15 @@ function dirIcon(name) {
         <circle cx="12" cy="12" r="12" fill="currentColor"/>
         <g fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${body}</g></svg>`;
     if (name in DIR_ROTATION) return svg(`<path d="M12 18V6M7 11l5-5 5 5" transform="rotate(${DIR_ROTATION[name]} 12 12)"/>`);
-    const loop = '<path d="M17.5 13.5A5.75 5.75 0 1 1 15.6 7.5"/><path d="M16.2 4.6l-.6 2.9 2.9.6"/>';
+    // a 300° loop ending at the top, with a solid arrowhead pointing the way round (mirrored for counterclockwise)
+    const loop = '<path d="M17.6 8.75A6.5 6.5 0 1 1 12 5.5"/><path d="M15.6 5.5 11.4 2.6v5.8z" fill="#fff" stroke-width="1"/>';
     if (name === 'Clockwise') return svg(loop);
     if (name === 'Counterclockwise') return svg(`<g transform="matrix(-1 0 0 1 24 0)">${loop}</g>`);
     return '';
 }
-/* 'Westbound / Southbound' with an icon before each name */
+/* 'Westbound / Southbound' with an icon after each name */
 function dirTitle(names) {
-    return `<span class="dir-title">${[].concat(names).map(n => `<span class="dir-name">${dirIcon(n)}${esc(n)}</span>`)
+    return `<span class="dir-title">${[].concat(names).map(n => `<span class="dir-name">${esc(n)}${dirIcon(n)}</span>`)
         .join('<span class="dir-sep">/</span>')}</span>`;
 }
 
