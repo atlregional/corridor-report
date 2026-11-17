@@ -167,8 +167,7 @@ function tooltipStyle() {
 }
 
 /* Bar chart, one dataset per period (grouped), single y axis. */
-/* note(i), if given, adds a line under the values in the tooltip of category i. */
-function barChart(id, { labels, series, yTitle, horizontal = false, max = null, colors = SERIES_COLORS, valueSuffix = '', group = null, note = null }) {
+function barChart(id, { labels, series, yTitle, horizontal = false, max = null, colors = SERIES_COLORS, valueSuffix = '', group = null }) {
     charts[id]?.destroy();
     const canvas = document.getElementById(id);
     if (!canvas) return;
@@ -210,10 +209,7 @@ function barChart(id, { labels, series, yTitle, horizontal = false, max = null, 
                 legend: { display: false },
                 tooltip: {
                     ...tooltipStyle(),
-                    callbacks: {
-                        label: c => ` ${c.dataset.label}: ${fmt(c.parsed[horizontal ? 'x' : 'y'], valueSuffix === '%' ? 1 : 0)}${valueSuffix}`,
-                        ...(note ? { footer: items => note(items[0].dataIndex) } : {}),
-                    },
+                    callbacks: { label: c => ` ${c.dataset.label}: ${fmt(c.parsed[horizontal ? 'x' : 'y'], valueSuffix === '%' ? 1 : 0)}${valueSuffix}` },
                 },
             },
         },
@@ -281,6 +277,41 @@ function lineChart(id, { labels, series, yTitle, yMin, yMax, unit = '', digits =
         },
     });
     if (group) onLegend(group, chartLegendHandler(chart));
+}
+
+/* Radar chart on a 0–max scale; each series is a polygon (dashed: a reference such as the average). */
+function radarChart(id, { labels, series, max, step = 1, digits = 1 }) {
+    charts[id]?.destroy();
+    const canvas = document.getElementById(id);
+    if (!canvas) return;
+    charts[id] = new Chart(canvas, {
+        type: 'radar',
+        data: {
+            labels,
+            datasets: series.map(s => ({
+                label: s.label, data: s.data,
+                borderColor: s.color, backgroundColor: s.fill ?? 'transparent', borderWidth: s.dashed ? 2 : 3,
+                borderDash: s.dashed ? [6, 4] : [], pointRadius: s.dashed ? 0 : 5, pointHoverRadius: 7, pointHitRadius: 14,
+                pointBackgroundColor: s.color, pointBorderColor: '#ffffff', pointBorderWidth: 1.5,
+            })),
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+                r: {
+                    min: 0, max, ticks: { stepSize: step, backdropColor: 'transparent', color: INK_SECONDARY },
+                    grid: { color: GRID }, angleLines: { color: GRID },
+                    pointLabels: { color: INK, font: { size: 13 } },
+                },
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: { ...tooltipStyle(), callbacks: { label: c => ` ${c.dataset.label}: ${fmt(c.parsed.r, digits)}` } },
+            },
+        },
+    });
 }
 
 /* Horizontal floating bars: one [low, high] range per category and series. tip(k, i) gives
@@ -597,27 +628,28 @@ function scanChart(id, { segments, periods, tti, down, title, peaks = [], years 
 function dotPlot(id, { items, highlight, valueLabel, tip, onSelect }) {
     const values = items.map(d => d.value);
     const lo = Math.min(...values), hi = Math.max(...values);
-    const cols = hi - lo + 1;
-    const counts = Array(cols).fill(0);
-    const placed = items.slice().sort((a, b) => (a.id === highlight) - (b.id === highlight)).map(d => {
-        const c = d.value - lo;
-        return { ...d, col: c, n: counts[c]++ };
-    });
-    const maxCount = Math.max(...counts);
+    const order = items.slice().sort((a, b) => (a.id === highlight) - (b.id === highlight));
     let layout = [];
     const M = { top: 34, right: 8, bottom: 34, left: 8 };
 
     const handle = svgChart(id, W => {
         const pw = W - M.left - M.right;
-        // dots per row inside a column: as many as fit while keeping dots at least 6 px apart
-        let sub = 4, pitch;
-        for (; sub >= 1; sub--) {
-            pitch = Math.min(12, pw / (cols * (sub + 1)));
-            if (pitch >= 6 || sub === 1) break;
+        // one dot per row, a column per value; where that doesn't fit with dots at least 6 px apart,
+        // neighboring values share a column (2, then 5, then 10 values per column)
+        let bin = 1, cols, pitch;
+        for (bin of [1, 2, 5, 10]) {
+            cols = Math.floor((hi - lo) / bin) + 1;
+            pitch = Math.min(12, pw / (cols * 2));
+            if (pitch >= 6) break;
         }
-        const colW = pitch * (sub + 1);
+        const counts = Array(cols).fill(0);
+        const placed = order.map(d => {
+            const c = Math.floor((d.value - lo) / bin);
+            return { d, col: c, n: counts[c]++ };
+        });
+        const colW = pitch * 2;
         const x0 = M.left + (pw - colW * cols) / 2;
-        const rows = Math.ceil(maxCount / sub);
+        const rows = Math.max(...counts);
         const H = M.top + rows * pitch + M.bottom;
         const r = pitch * 0.38;
         layout = [];
@@ -626,11 +658,11 @@ function dotPlot(id, { items, highlight, valueLabel, tip, onSelect }) {
         out += `<line x1="${x0}" x2="${x0 + colW * cols}" y1="${base + 2}" y2="${base + 2}" stroke="${AXIS}"/>`;
         // label every column when there is room (about 24 px per label), otherwise every 2nd, 3rd, ...
         for (let c = 0, step = Math.max(1, Math.ceil(24 / colW)); c < cols; c += step) {
-            out += `<text x="${x0 + colW * (c + 0.5)}" y="${base + 18}" text-anchor="middle" font-size="12" fill="${INK_SECONDARY}">${esc(valueLabel(lo + c))}</text>`;
+            out += `<text x="${x0 + colW * (c + 0.5)}" y="${base + 18}" text-anchor="middle" font-size="12" fill="${INK_SECONDARY}">${esc(valueLabel(lo + c * bin))}</text>`;
         }
-        placed.forEach(d => {
-            const cx = x0 + colW * d.col + pitch * (d.n % sub + 1);
-            const cy = base - pitch * (Math.floor(d.n / sub) + 0.5);
+        placed.forEach(({ d, col, n }) => {
+            const cx = x0 + colW * (col + 0.5);
+            const cy = base - pitch * (n + 0.5);
             layout.push({ d, cx, cy });
             if (d.id !== highlight) out += `<circle class="dot" cx="${cx}" cy="${cy}" r="${r}" fill="#9aa3ae"/>`;
         });

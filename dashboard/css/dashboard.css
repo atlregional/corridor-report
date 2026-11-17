@@ -279,6 +279,9 @@ details.definition p { margin: .25rem 0 .5rem; color: var(--ink-secondary); }
 .svg-chart { height: auto; min-height: 10rem; }
 .svg-chart svg { display: block; }
 .chart-title { margin: .5rem 0 .25rem; font-weight: 600; }
+.chart-radar { height: 26rem; max-width: 36rem; margin: 0 auto; }
+@media (max-width: 600px) { .chart-radar { height: 20rem; } }
+.chart-legend i.dash-key { width: 22px; height: 0; border-radius: 0; border-top: 2px dashed var(--ink-secondary); }
 /* direction icon before a direction name (dirIcon in sections.js) */
 .dir-title { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .25em .5em; }
 .dir-name { display: inline-flex; align-items: center; gap: .4em; white-space: nowrap; }

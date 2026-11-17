@@ -198,6 +198,17 @@
    "low_income": 26.0
   },
   "buffer_mi": 1,
-  "reference_tracts": 1495
+  "reference_tracts": 1495,
+  "corridor_mean": {
+   "youth": 49.7,
+   "older_adults": 51.2,
+   "female": 51.3,
+   "racial_minority": 48.5,
+   "ethnic_minority": 56.9,
+   "foreign_born": 48.5,
+   "limited_english": 55.0,
+   "disability": 56.6,
+   "low_income": 57.4
+  }
  }
 }
