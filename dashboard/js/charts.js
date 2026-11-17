@@ -634,12 +634,13 @@ function dotPlot(id, { items, highlight, valueLabel, tip, onSelect }) {
 
     const handle = svgChart(id, W => {
         const pw = W - M.left - M.right;
-        // one dot per row, a column per value; where that doesn't fit with dots at least 6 px apart,
-        // neighboring values share a column (2, then 5, then 10 values per column)
+        // one dot per row, a column per value, columns 1.3 dots apart; where that doesn't fit with dots at
+        // least 6 px apart, neighboring values share a column (2, then 5, then 10 values per column)
+        const SPACING = 1.3;
         let bin = 1, cols, pitch;
         for (bin of [1, 2, 5, 10]) {
             cols = Math.floor((hi - lo) / bin) + 1;
-            pitch = Math.min(12, pw / (cols * 2));
+            pitch = Math.min(12, pw / (cols * SPACING));
             if (pitch >= 6) break;
         }
         const counts = Array(cols).fill(0);
@@ -647,7 +648,7 @@ function dotPlot(id, { items, highlight, valueLabel, tip, onSelect }) {
             const c = Math.floor((d.value - lo) / bin);
             return { d, col: c, n: counts[c]++ };
         });
-        const colW = pitch * 2;
+        const colW = pitch * SPACING;
         const x0 = M.left + (pw - colW * cols) / 2;
         const rows = Math.max(...counts);
         const H = M.top + rows * pitch + M.bottom;
@@ -656,9 +657,12 @@ function dotPlot(id, { items, highlight, valueLabel, tip, onSelect }) {
         let out = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true" focusable="false">`;
         const base = M.top + rows * pitch;
         out += `<line x1="${x0}" x2="${x0 + colW * cols}" y1="${base + 2}" y2="${base + 2}" stroke="${AXIS}"/>`;
-        // label every column when there is room (about 24 px per label), otherwise every 2nd, 3rd, ...
-        for (let c = 0, step = Math.max(1, Math.ceil(24 / colW)); c < cols; c += step) {
-            out += `<text x="${x0 + colW * (c + 0.5)}" y="${base + 18}" text-anchor="middle" font-size="12" fill="${INK_SECONDARY}">${esc(valueLabel(lo + c * bin))}</text>`;
+        // labels on round values only: every 2 or 3 (more on narrow screens), about 24 px apart at least
+        const step = [2, 3, 4, 6, 10, 20, 30].find(s => s % bin === 0 && s / bin * colW >= 24) ?? 50;
+        for (let c = 0; c < cols; c++) {
+            const v = lo + c * bin;
+            if (v % step) continue;
+            out += `<text x="${x0 + colW * (c + 0.5)}" y="${base + 18}" text-anchor="middle" font-size="12" fill="${INK_SECONDARY}">${esc(valueLabel(v))}</text>`;
         }
         placed.forEach(({ d, col, n }) => {
             const cx = x0 + colW * (col + 0.5);
