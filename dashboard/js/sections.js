@@ -640,13 +640,11 @@ const SECTIONS = [
             const keys = Object.keys(this.names).filter(k => e.percentile[k] != null);
             const scores = App.corridors.map(c => c.ej).filter(v => v != null);
             const [lo, hi] = [Math.min(...scores), Math.max(...scores)];
-            // share of corridors with a lower overall score
-            const rank = Math.round(scores.filter(v => v < e.overall).length / scores.length * 100);
             const buffer = meta.buffer_mi ?? 1;
             const rows = keys.map(k => [meta.names?.[k] ?? this.names[k], `${fmt(e.share[k], 1)}%`, `${fmt(meta.region_share?.[k], 1)}%`, ordinal(e.percentile[k])]);
             return card(this.id, this.title, e.period, `
-                <p class="summary">This corridor's overall equity score is <strong>${fmt(e.overall)}</strong>, in the <strong>${ordinal(rank)} percentile</strong> among the region's corridors.
-                    The overall score is the average of the nine indicator percentiles shown below; across the region it ranges from ${fmt(lo)} to ${fmt(hi)}.
+                <p class="summary">This corridor's overall equity score is <strong>${fmt(e.overall)}</strong>; across the region it ranges from ${fmt(lo)} to ${fmt(hi)}.
+                    The overall score is the average of the nine indicator percentiles shown below.
                     Higher scores mean the corridor serves more people in these groups.</p>
                 <h4>Overall score, all corridors</h4>
                 <p class="period-note">Each dot is a corridor. Hover or tap a dot to see which one; select it to open its report.</p>
