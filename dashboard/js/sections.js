@@ -629,51 +629,57 @@ const SECTIONS = [
     /* ---------- equity ---------- */
     {
         id: 'equity', title: 'Equity',
-        names: { ethnic_minority: 'Ethnic minority', racial_minority: 'Racial minority', female: 'Female', youth: 'Youth', older_adults: 'Older adults',
-                 foreign_born: 'Foreign born', limited_english: 'Limited English', disability: 'Disability', low_income: 'Low income' },
-        /* average factor score of all corridors, from the counts per score */
-        average(k) {
-            const counts = App.region.equity_counts?.[k];
-            if (!counts) return null;
-            const n = counts.reduce((a, b) => a + b, 0);
-            return n ? counts.reduce((a, c, s) => a + c * s, 0) / n : null;
-        },
+        // short names for the chart axis; the table uses the full names from region.json
+        names: { youth: 'Youth', older_adults: 'Older adults', female: 'Female', racial_minority: 'Racial minority',
+                 ethnic_minority: 'Ethnic minority', foreign_born: 'Foreign-born', limited_english: 'Limited English',
+                 disability: 'Disability', low_income: 'Low income' },
         render(d) {
             const e = d.equity;
-            const total = App.corridors.length;
-            // the radar has no table, so its text description carries the values
-            const values = Object.entries(e.factors).map(([k, v]) => `${this.names[k] ?? k} ${fmt(v)} (average ${fmt(this.average(k), 1)})`).join('; ');
-            const higher = e.percentile;
+            if (!e) return null;
+            const meta = App.region.equity ?? {};
+            const keys = Object.keys(this.names).filter(k => e.percentile[k] != null);
+            const top = [...keys].sort((a, b) => e.percentile[b] - e.percentile[a])[0];
             const scores = App.corridors.map(c => c.ej).filter(v => v != null);
             const [lo, hi] = [Math.min(...scores), Math.max(...scores)];
+            const buffer = meta.buffer_mi ?? 1;
+            const rows = keys.map(k => [meta.names?.[k] ?? this.names[k], `${fmt(e.share[k], 1)}%`, `${fmt(meta.region_share?.[k], 1)}%`, ordinal(e.percentile[k])]);
             return card(this.id, this.title, e.period, `
-                <p class="summary">This corridor's total equity score is <strong>${fmt(e.score)}</strong>${higher != null ? `, in the <strong>${ordinal(higher)} percentile</strong> among the region's corridors` : ''}.
-                    The total is the sum of the nine factor scores shown below; across the region it ranges from ${fmt(lo)} to ${fmt(hi)}.
-                    Higher scores mean the corridor serves more people in these groups.</p>
+                <p class="summary">Of the roughly <strong>${fmt(Math.round(e.population / 100) * 100)} people</strong> living within ${buffer} mile of this corridor,
+                    the overall equity score is <strong>${fmt(e.overall)}</strong> out of 100 (the average of the nine indicators below; 50 is a typical neighborhood in the region).
+                    ${top ? `The highest is <strong>${esc(this.names[top].toLowerCase())}</strong>: ${fmt(e.share[top], 1)}% of nearby residents, higher than ${fmt(e.percentile[top])}% of the region's census tracts.` : ''}</p>
+                <h4>Percentile by indicator</h4>
+                <p class="period-note">Where the corridor's nearby population ranks among the region's census tracts: 90 means a higher share than 90% of tracts.</p>
+                ${chartCanvas('chart-equity-bars', `Bar chart of the nine equity indicator percentiles for ${d.name}: ${keys.map(k => `${this.names[k]} ${fmt(e.percentile[k])}`).join(', ')}. Values are in the data table below.`,
+                    { height: 60 + keys.length * 30 })}
+                ${dataTableDetails('Equity indicators: share of nearby residents, the region\'s share, and percentile among the region\'s census tracts',
+                    ['Indicator', 'Near this corridor', '21-county region', 'Percentile'], rows)}
+                <h4>Overall score, all corridors</h4>
                 <p class="period-note">Each dot is a corridor. Hover or tap a dot to see which one; select it to open its report.</p>
-                ${chartSvg('chart-equity-dots', `Dot plot of total equity scores for all ${total} corridors, ranging from ${lo} to ${hi}. This corridor scores ${e.score}, in the ${higher != null ? ordinal(higher) : '–'} percentile.`)}
-                <h4>Score by factor</h4>
-                <div class="chart-legend" aria-hidden="true">
-                    <span><i style="background:#d03b3b"></i>This corridor</span>
-                    <span><i class="dash-key"></i>Avg. of all corridors</span>
-                </div>
-                ${chartCanvas('chart-equity-radar', `Radar chart of the nine equity factor scores (0 to 4) for ${d.name}, compared with the average of all corridors: ${values}.`, { cls: 'chart-radar' })}`);
+                ${chartSvg('chart-equity-dots', `Dot plot of overall equity scores for all ${scores.length} corridors, ranging from ${fmt(lo)} to ${fmt(hi)}. This corridor scores ${fmt(e.overall)}.`)}
+                ${definition('About this data', [
+                    ['Source', `American Community Survey ${e.period} 5-year estimates by census tract, 21-county Atlanta region.`],
+                    ['Nearby residents', `Census tracts within ${buffer} mile of the corridor, each counted by the share of its 2020 Census population living inside that distance.`],
+                    ['Percentile', 'The share of the region\'s census tracts with a lower share of that group (tracts with fewer than 100 people are left out).'],
+                    ['Overall score', 'The average of the nine percentiles, from 0 to 100. It compares this corridor with the region; it does not measure need on its own.'],
+                    ['Indicators', 'Youth (under 18), older adults (65 and over), female, racial minority (other than white alone), ethnic minority (Hispanic or Latino), foreign-born, limited English (speaks English less than "very well", age 5 and over), people with disabilities, and low income (below 200% of the poverty level).'],
+                ])}`);
         },
         after(d) {
+            const e = d.equity;
+            if (!e) return;
+            const meta = App.region.equity ?? {};
+            const keys = Object.keys(this.names).filter(k => e.percentile[k] != null);
+            barChart('chart-equity-bars', {
+                labels: keys.map(k => this.names[k]), horizontal: true, max: 100, colors: [SINGLE_COLOR],
+                series: [{ label: 'Percentile', data: keys.map(k => e.percentile[k]) }],
+                note: i => `${fmt(e.share[keys[i]], 1)}% of nearby residents (region: ${fmt(meta.region_share?.[keys[i]], 1)}%)`,
+            });
             dotPlot('chart-equity-dots', {
-                items: App.corridors.filter(c => c.ej != null).map(c => ({ id: c.id, name: c.name, county: c.county, value: c.ej })),
+                items: App.corridors.filter(c => c.ej != null).map(c => ({ id: c.id, name: c.name, county: c.county, value: Math.round(c.ej) })),
                 highlight: d.id,
                 valueLabel: v => fmt(v),
                 tip: c => `<strong>${esc(c.name)}</strong><span>${esc(c.county)} County · score ${fmt(c.value)}</span>`,
                 onSelect: c => App.select(c.id, { scroll: true }),
-            });
-            const keys = Object.keys(d.equity.factors);
-            radarChart('chart-equity-radar', {
-                labels: keys.map(k => this.names[k] ?? k), max: 4,
-                series: [
-                    { label: 'Avg. of all corridors', data: keys.map(k => this.average(k)), color: '#4f5560', dashed: true },
-                    { label: 'This corridor', data: keys.map(k => d.equity.factors[k]), color: '#d03b3b', fill: 'rgba(208, 59, 59, 0.15)' },
-                ],
             });
         },
     },

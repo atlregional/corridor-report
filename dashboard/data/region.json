@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-10",
+ "updated": "2026-11-17",
  "reporting_year": 2026,
  "analysis_periods": [
   "Jan 1\u2013Oct 26, 2024",
@@ -173,69 +173,31 @@
    ]
   }
  },
- "equity_counts": {
-  "ethnic_minority": [
-   0,
-   61,
-   245,
-   36,
-   18
-  ],
-  "racial_minority": [
-   12,
-   101,
-   143,
-   102,
-   2
-  ],
-  "female": [
-   0,
-   23,
-   301,
-   36,
-   0
-  ],
-  "youth": [
-   9,
-   47,
-   246,
-   58,
-   0
-  ],
-  "older_adults": [
-   0,
-   48,
-   266,
-   45,
-   1
-  ],
-  "foreign_born": [
-   0,
-   126,
-   161,
-   61,
-   12
-  ],
-  "limited_english": [
-   0,
-   54,
-   248,
-   41,
-   17
-  ],
-  "disability": [
-   0,
-   60,
-   218,
-   80,
-   2
-  ],
-  "low_income": [
-   0,
-   63,
-   193,
-   101,
-   3
-  ]
+ "equity": {
+  "period": "2020\u20132024",
+  "names": {
+   "youth": "Youth (under 18)",
+   "older_adults": "Older adults (65+)",
+   "female": "Female",
+   "racial_minority": "Racial minority",
+   "ethnic_minority": "Ethnic minority (Hispanic or Latino)",
+   "foreign_born": "Foreign-born",
+   "limited_english": "Limited English proficiency",
+   "disability": "People with disabilities",
+   "low_income": "Low income (below 200% of poverty)"
+  },
+  "region_share": {
+   "youth": 23.7,
+   "older_adults": 13.3,
+   "female": 51.5,
+   "racial_minority": 56.1,
+   "ethnic_minority": 13.3,
+   "foreign_born": 15.7,
+   "limited_english": 8.0,
+   "disability": 10.9,
+   "low_income": 26.0
+  },
+  "buffer_mi": 1,
+  "reference_tracts": 1495
  }
 }

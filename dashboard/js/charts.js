@@ -167,7 +167,8 @@ function tooltipStyle() {
 }
 
 /* Bar chart, one dataset per period (grouped), single y axis. */
-function barChart(id, { labels, series, yTitle, horizontal = false, max = null, colors = SERIES_COLORS, valueSuffix = '', group = null }) {
+/* note(i), if given, adds a line under the values in the tooltip of category i. */
+function barChart(id, { labels, series, yTitle, horizontal = false, max = null, colors = SERIES_COLORS, valueSuffix = '', group = null, note = null }) {
     charts[id]?.destroy();
     const canvas = document.getElementById(id);
     if (!canvas) return;
@@ -209,7 +210,10 @@ function barChart(id, { labels, series, yTitle, horizontal = false, max = null, 
                 legend: { display: false },
                 tooltip: {
                     ...tooltipStyle(),
-                    callbacks: { label: c => ` ${c.dataset.label}: ${fmt(c.parsed[horizontal ? 'x' : 'y'], valueSuffix === '%' ? 1 : 0)}${valueSuffix}` },
+                    callbacks: {
+                        label: c => ` ${c.dataset.label}: ${fmt(c.parsed[horizontal ? 'x' : 'y'], valueSuffix === '%' ? 1 : 0)}${valueSuffix}`,
+                        ...(note ? { footer: items => note(items[0].dataIndex) } : {}),
+                    },
                 },
             },
         },
@@ -277,41 +281,6 @@ function lineChart(id, { labels, series, yTitle, yMin, yMax, unit = '', digits =
         },
     });
     if (group) onLegend(group, chartLegendHandler(chart));
-}
-
-/* Radar chart on a 0–max scale; each series is a polygon (dashed: a reference such as the average). */
-function radarChart(id, { labels, series, max, digits = 1 }) {
-    charts[id]?.destroy();
-    const canvas = document.getElementById(id);
-    if (!canvas) return;
-    charts[id] = new Chart(canvas, {
-        type: 'radar',
-        data: {
-            labels,
-            datasets: series.map(s => ({
-                label: s.label, data: s.data,
-                borderColor: s.color, backgroundColor: s.fill ?? 'transparent', borderWidth: s.dashed ? 2 : 3,
-                borderDash: s.dashed ? [6, 4] : [], pointRadius: s.dashed ? 0 : 5, pointHoverRadius: 7, pointHitRadius: 14,
-                pointBackgroundColor: s.color, pointBorderColor: '#ffffff', pointBorderWidth: 1.5,
-            })),
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { mode: 'index', intersect: false },
-            scales: {
-                r: {
-                    min: 0, max, ticks: { stepSize: 1, backdropColor: 'transparent', color: INK_SECONDARY },
-                    grid: { color: GRID }, angleLines: { color: GRID },
-                    pointLabels: { color: INK, font: { size: 13 } },
-                },
-            },
-            plugins: {
-                legend: { display: false },
-                tooltip: { ...tooltipStyle(), callbacks: { label: c => ` ${c.dataset.label}: ${fmt(c.parsed.r, digits)}` } },
-            },
-        },
-    });
 }
 
 /* Horizontal floating bars: one [low, high] range per category and series. tip(k, i) gives

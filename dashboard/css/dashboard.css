@@ -315,9 +315,6 @@ details.definition p { margin: .25rem 0 .5rem; color: var(--ink-secondary); }
 .candle-key svg { flex: none; margin-left: .5rem; }
 
 /* equity radar */
-.chart-radar { height: 26rem; max-width: 36rem; margin: 0 auto; }
-@media (max-width: 600px) { .chart-radar { height: 20rem; } }
-.chart-legend i.dash-key { width: 22px; height: 0; border-radius: 0; border-top: 2px dashed var(--ink-secondary); }
 
 .selection {
     display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .75rem 1.5rem;
